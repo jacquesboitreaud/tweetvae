@@ -1,0 +1,1 @@
+Sequence to sequence VAE for learning continuous embedding of tweets (word level)
