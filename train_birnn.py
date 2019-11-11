@@ -4,11 +4,7 @@ Created on Tue Apr 23 12:01:48 2019
 
 @author: jacqu
 
-Pretrains the plain VAE to reconstruct smiles.
-CAN 2 CAN setting 
-Bidirectional RNN as encoder 
-
-=> For debugging, set L to a small value. Will prune the train set and run an epoch fast.  
+=> For debugging, set L to a small value. Will prune the train set to L samples. 
 """
 
 import os
@@ -23,7 +19,6 @@ from torch import nn, optim
 import torch.nn.utils.clip_grad as clip
 import torch.nn.functional as F
 from torch.utils.data import SubsetRandomSampler
-
 from model_birnn import tweetVAE, set_kappa, Loss
 
 from numpy.linalg import norm
@@ -38,13 +33,10 @@ SAVED_MODEL_PATH ='./saved_model_w/c2c.pth'
 LOAD_MODEL=False # set to true to load pretrained model
 SAVE_MODEL=True
 
-PRETRAIN = True # Train under plain VAE loss, without affinities 
-
 # Model params dict
 model_params={'MAX_LEN': 150,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-        'N_properties':10,
-        'N_targets':102} 
+        'N_properties':10} 
 parallel=False
 
 # Training params
@@ -57,22 +49,16 @@ lr_schedule={'initial_lr':3e-4,
 L=None
 
 
-# Sequence to rewrite and adapt : dataloading 
+#TODO  dataloading 
+#train_csv="../data/DUD_full.csv"
 
-train_csv="../data/DUD_full.csv"
-
-train_set = ligandsDataset_c2c(train_csv, limit=L, properties = prop_names)
-test_set = ligandsDataset_c2c(train_csv, limit = 128, properties = prop_names)
+#train_set = ligandsDataset_c2c(train_csv, limit=L, properties = prop_names)
+#test_set = ligandsDataset_c2c(train_csv, limit = 128, properties = prop_names)
 
 
-U_indices = np.arange(len(train_set))
-loader =torch.utils.data.DataLoader(train_set, batch_size=batch_size,
-                                            sampler=SubsetRandomSampler(U_indices))
-
-    
-
-test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size)
-print('Train set contains {} samples, test set contains {}'.format(len(train_set),len(test_set)))
+#train_loader =torch.utils.data.DataLoader(train_set, batch_size=batch_size)
+#test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size)
+#print('Train set contains {} samples, test set contains {}'.format(len(train_set),len(test_set)))
 
 # ====================== Instantiate model  =================================
 
@@ -96,28 +82,28 @@ kappa=0
 N_batches = int(len(train_set)/batch_size)
 
 
-def on_epoch_end(TEST_SCORED=False, save_pred_file=None):
+def on_epoch_end(save_pred_file=None):
     """ Setting for unlabeled test set, without affinity prediction """
     # Performance tests at the end of each batch.
     
     with torch.no_grad():
         # test set pass
-        l_tot, rec_tot, mse_tot, aff_tot=0,0,0,0
+        l_tot, rec_tot, mse_tot =0,0,0
 
         for batch_idx, data in enumerate(test_loader):
         
-            truesmiles = data[0].to(model_params['device'])
+            true_seqs = data[0].to(model_params['device'])
             seq_lengths = data[1].to(model_params['device'])
             p_target= data[2].to(model_params['device'])
             
             # Sort 
             seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
-            truesmiles = truesmiles[perm_idx]
+            true_seqs = true_seqs[perm_idx]
             
             
             #=========== forward ==========================
-            recon_batch, mu, logvar, prop= model(truesmiles, seq_lengths)
-            t_loss, rec, div, mse = Loss(recon_batch, truesmiles, mu, logvar,
+            recon_batch, mu, logvar, prop= model(true_seqs, seq_lengths)
+            t_loss, rec, div, mse = Loss(recon_batch, true_seqs, mu, logvar,
                                                          y=p_target, pred_properties= prop,
                                                          kappa = kappa)
                 
@@ -131,8 +117,8 @@ def on_epoch_end(TEST_SCORED=False, save_pred_file=None):
             if(batch_idx==0):
                 
                 # Monitor loss at a character level
-                loss_per_char = rec.item()/(150*recon_batch.shape[0])
-                print("Test cross-entropy loss per char: ", loss_per_char)
+                loss_per_timestep = rec.item()/(150*recon_batch.shape[0])
+                print("Test cross-entropy loss per word : ", loss_per_timestep)
             
                 # Print mu and logvar mean for one batch
                 mu_, logvar_=mu.cpu().numpy(), logvar.cpu().numpy()
@@ -148,32 +134,31 @@ def lr_decay(optim, n_epoch , lr_schedule):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-def train(epoch, pre_train=False):
+def train(epoch):
     # trains the model for one epoch. Returns the loss per item for this epoch.
     model.train()
-    l_tot, rec_tot, kl_tot, mse_tot, aff_tot=0,0,0,0,0
+    l_tot, rec_tot, kl_tot, mse_tot=0,0,0,0
     
     
     print ("\n")
     print("starting epoch {}".format(epoch))
     print("\n")
 
-    # Unlabeled loader : No aff loss !!!!!!!!!!!!!!
-    for batch_idx, data in enumerate(U_loader):
+    for batch_idx, data in enumerate(train_loader):
         
         kappa=set_kappa(epoch, batch_idx,N_batches)
         
-        truesmiles = data[0].to(model_params['device'])
+        true_seqs = data[0].to(model_params['device'])
         seq_lengths = data[1].to(model_params['device'])
         p_target= data[2].to(model_params['device'])
         
         # Sort 
         seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
-        truesmiles = truesmiles[perm_idx]
+        true_seqs = true_seqs[perm_idx]
         
         #=========== forward ==========================
-        recon_batch, mu, logvar, prop = model(truesmiles, seq_lengths)
-        tr_loss, rec, div, mse = Loss(recon_batch,truesmiles, mu, logvar,
+        recon_batch, mu, logvar, prop = model(true_seqs, seq_lengths)
+        tr_loss, rec, div, mse = Loss(recon_batch,true_seqs, mu, logvar,
                                                      y=p_target, pred_properties= prop,
                                                      kappa = kappa)
             
@@ -226,15 +211,14 @@ if (__name__=="__main__"):
     for epoch in range(1, epochs + 1):
         # train step
         t0=time.time()
-        epoch_loss, rec_tot, kl_tot, mse_tot, aff_tot = train(epoch, PRETRAIN)
+        epoch_loss, rec_tot, kl_tot, mse_tot, aff_tot = train(epoch)
         t1=time.time()
         delta=t1-t0
         print('epoch [{}/{}], loss per item: {:.2f}, time elapsed: {:.1f}'.format(epoch, 
               epochs, epoch_loss, delta))
         
         # test step
-        test_loss, test_rec, test_mse, test_aff_loss = on_epoch_end(TEST_SCORED=False, 
-                                                                    save_pred_file='../data/sample_pred.csv')
+        test_loss, test_rec, test_mse, test_aff_loss = on_epoch_end(save_pred_file='../data/sample_pred.csv')
         
         # Append logs
         logs['train_l'].append(epoch_loss)

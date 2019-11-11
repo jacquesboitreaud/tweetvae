@@ -34,7 +34,7 @@ from queue import PriorityQueue
 
 class tweetVAE(nn.Module):
     def __init__(self, **kwargs ):
-        super(MolecularVAE, self).__init__()
+        super(tweetVAE, self).__init__()
         
         self.kappa=1
         self.voc_size=35
@@ -45,9 +45,8 @@ class tweetVAE(nn.Module):
         self.device=kwargs['device']
         
         
-        # For multitask properties prediction
+        # For multitask properties prediction (topic, sentiment, etc...)
         self.N_properties=kwargs['N_properties']
-        self.N_targets = kwargs['N_targets']
         
         
         # ENCODER
@@ -119,52 +118,9 @@ class tweetVAE(nn.Module):
         # pass to GRU with teacher forcing
         out, h = self.rnn_decoder(x_offset, h0)
         out=self.dense_out(out) # Go from hidden size to voc size 
-        
         gen_seq = F.softmax(out, dim=1) # Shape N, voc_size
-                
         return gen_seq
     
-    def decode_beam(self, z, k=3):
-        """
-        Decodes a batch, sequence after sequence, using beam search of width k (more precise decoding, robust to errors)
-        Output: 
-            a list of lists of k best sequences for each molecule.
-        TODO : rewrite with pytorch GRU implementation 
-        """
-        N = z.shape[0]
-        sequences = []
-        for n in range(N):
-            print("decoding molecule n° ",n)
-            # Initialize rnn states and input
-            z_1mol=z[n].view(1,self.latent_size) # Reshape as a batch of size 1
-            start_token = self.rnn_in(z_1mol).view(1,1,self.voc_size).to(self.device)
-            rnn_in = start_token
-            h = self.rnn.init_h(z_1mol)
-            topk = [BeamSearchNode(h,rnn_in, 0, [] )]
-            
-            for step in range(self.max_len):
-                next_nodes=PriorityQueue()
-                for candidate in topk: # for each candidate sequence (among k)
-                    score = candidate.score
-                    seq=candidate.sequence
-                    # pass into decoder
-                    out, new_h = self.rnn(candidate.rnn_in, candidate.h) 
-                    probas = F.softmax(out, dim=1) # Shape N, voc_size
-                    for c in range(self.voc_size):
-                        new_seq=seq+[c]
-                        rnn_in=torch.zeros((1,35))
-                        rnn_in[0,c]=1
-                        s= score-probas[0,c]
-                        next_nodes.put(( s.item(), BeamSearchNode(new_h, rnn_in.to(self.device),s.item(), new_seq)) )
-                topk=[]
-                for k_ in range(k):
-                    # get top k for next timestep !
-                    score, node=next_nodes.get()
-                    topk.append(node)
-                    #print("top sequence for next step :", node.sequence)
-                    
-            sequences.append([n.sequence for n in topk]) # list of lists 
-        return sequences
     
     def get_properties(self,z):
         """ Forward pass of the latent vector to generate molecular properties"""
@@ -184,13 +140,14 @@ class tweetVAE(nn.Module):
 
 def Loss(out, x, mu, logvar, y=None, pred_properties=None, kappa=1.0):
     """ 
-    Loss function for VAE with reconstruction loss, divergence 
+    Loss function, 3 components;
+        - reconstruction 
+        - KL Divergence
+        - mean squared error for properties prediction
     
     """
     BCE = F.binary_cross_entropy(out, x, reduction="sum")
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    
-    
     error= F.mse_loss(pred_properties, y, reduction="sum")
     total_loss=BCE + kappa*KLD + error
         
