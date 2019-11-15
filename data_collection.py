@@ -1,6 +1,7 @@
 from twython import Twython 
 import json 
 import pandas as pd
+import pickle
 
 def getQuery(queryList,topic,data):
     # set up how much data to retrieve !make sure that all lengths add up for dataframe
@@ -40,4 +41,7 @@ for key in queryDict:
 
 # make data pandas dataframe to facilitate manipulation
 df = pd.DataFrame(data)
-print(df)
+
+# save the data for further processing
+pickle.dump(df, open('rawTwitterData.pickle', 'wb'))
+print(df['politics'][6])
