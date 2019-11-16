@@ -3,11 +3,15 @@ import json
 import pandas as pd
 import pickle
 
+
+# Dict assigning an integer label to each of the topics we have 
+#label_dict={topic:i for topic,i in enumerate(topics)}
+
 def getQuery(queryList,topic,data):
     # set up how much data to retrieve !make sure that all lengths add up for dataframe
-    count = 20
+    count = 40 # Nbr of tweets to get for each keyword
     if topic is 'general':
-        count = 100
+        count = 200
     # access api (note I had to used mixed for result type instead of popular to get the desired amount of tweets)
     for keyword in queryList: 
         query = {'q': keyword,
@@ -38,10 +42,23 @@ data = {'politics': [], 'sports': [], 'movies': [], 'companies': [], 'general': 
 # iterate through queries and retrieve data from twitter
 for key in queryDict: 
     data = getQuery(queryDict[key],key,data)
+    
+for k,v in data.items():
+    print(len(v))
 
 # make data pandas dataframe to facilitate manipulation
 df = pd.DataFrame(data)
 
-# save the data for further processing
-pickle.dump(df, open('rawTwitterData.pickle', 'wb'))
+# save the data for further processing 
+# Save in 'data' directory 
+
+toydata={'tweet':df['general'],'label':np.ones(100)}
+
+df = pd.DataFrame.from_dict(toydata)
+
+#df.to_csv('example_dataframe.csv')
+
+"""
+pickle.dump(df, open('data/rawTwitterData.pickle', 'wb'))
 print(df['politics'][6])
+"""

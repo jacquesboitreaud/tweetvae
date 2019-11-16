@@ -5,12 +5,8 @@ Created on Mon Apr 22 11:44:23 2019
 @author: jacqu
 
 Required parameters:
-    - MAX_LEN (max length of sequence)
     - device to run
-    - N_properties (topic, polarity, etc...) any additionnal topic we would like to predict from the latent representation
-
-TODO: adapt from model working on sequence representations of molecules 
-(mostly input type and dataloading aspects to change, the rest probably remains the same )
+    - N_properties (Dimension of label) any additionnal topic we would like to predict from the latent representation
 
 
 
@@ -37,7 +33,7 @@ class tweetVAE(nn.Module):
         super(tweetVAE, self).__init__()
         
         self.kappa=1
-        self.voc_size=35
+        self.voc_size=kwargs['vocab_size']
         self.max_len=kwargs['MAX_LEN']
         
         self.latent_size= 50
@@ -50,7 +46,7 @@ class tweetVAE(nn.Module):
         
         
         # ENCODER
-        self.birnn = torch.nn.GRU(input_size=35, hidden_size=400, num_layers=1,
+        self.birnn = torch.nn.GRU(input_size=self.voc_size, hidden_size=400, num_layers=1,
                                   batch_first=True, bidirectional=True)
         
         # Latent mean and variance
@@ -59,11 +55,11 @@ class tweetVAE(nn.Module):
         self.encoder_logv = nn.Linear(self.latent_size , self.latent_size)
         
         # DECODER: Multilayer GRU, trained with teacher forcing
-        self.rnn_decoder = nn.GRU(input_size=35, hidden_size=400, num_layers=3,
+        self.rnn_decoder = nn.GRU(input_size=self.voc_size, hidden_size=400, num_layers=3,
                                   batch_first=True, bidirectional=False)
         
         self.dense_init=nn.Linear(self.latent_size,3*self.h_size) # to initialise hidden state
-        self.dense_out=nn.Linear(400,35)
+        self.dense_out=nn.Linear(400,self.voc_size)
         
         # PROPERTY REGRESSOR (may change to classifier with sigmoid and bce loss)
         self.MLP=nn.Sequential(
@@ -138,7 +134,7 @@ class tweetVAE(nn.Module):
             
         return gen_seq, mean, logv, properties
 
-def Loss(out, x, mu, logvar, y=None, pred_properties=None, kappa=1.0):
+def Loss(out, x, mu, logvar, y=None, pred_label=None, kappa=1.0):
     """ 
     Loss function, 3 components;
         - reconstruction 
@@ -148,7 +144,7 @@ def Loss(out, x, mu, logvar, y=None, pred_properties=None, kappa=1.0):
     """
     BCE = F.binary_cross_entropy(out, x, reduction="sum")
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    error= F.mse_loss(pred_properties, y, reduction="sum")
+    error= F.mse_loss(pred_label, y, reduction="sum")
     total_loss=BCE + kappa*KLD + error
         
     return total_loss, BCE, KLD, error # returns 4 values
@@ -163,3 +159,27 @@ def set_kappa(epoch, batch_idx,N_batches):
     else:
         kappa = min(2*batch_idx/N_batches,1)
         return kappa
+    
+def load_my_state_dict(model, state_dict):
+    """
+    Function to load pretrained weights for encoder and decoder, and 
+    use them in a multitask model with additional MLP.
+    
+    Loads only weights for encoder / decoder, not the MLP ones.
+    """
+    own_state = model.state_dict() # The new model 
+    for name, param in state_dict.items(): # The parameters saved from last time
+        # DO NOT load params not present in the new model, or params of the affinity predictor. 
+        if (name not in own_state):
+             continue
+        #if('aff_net' in name):
+        #continue
+        if isinstance(param, Parameter):
+            # backwards compatibility for serialized parameters
+            param = param.data
+        own_state[name].copy_(param)
+
+def lr_decay(optim, n_epoch , lr_schedule):
+    lr = lr_schedule['initial_lr'] * (lr_schedule['decay_factor'] ** (n_epoch // lr_schedule['decay_freq']))
+    for param_group in optim.param_groups:
+        param_group['lr'] = lr

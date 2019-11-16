@@ -1,22 +1,31 @@
 import pickle
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
+
+""" 
+I modified some functions to handle the tweet dataframe with columns (tweet, label)
+instead of having several keys in the dict
+"""
 
 
 """ Removes any words that are @ references to other twitter users, removes 'RT' used for retweets, and removes urls """
 def cleanTweets(rawTwitterData):
-	cleanedTweets = {}
-	for key in rawTwitterData.keys():
-		cleanedTweets[key] = []
-		for tweet in rawTwitterData[key]:
-			cleanedTweet = []
-			for word in tweet.split():
-				if (word != 'RT' and '@' not in word and "http" not in word):
-					cleanedTweet.append(word)
+    """ Takes dataframe (tweet,label). Returns same with clean tweets """
+    cleanedTweets = {'tweet':[], 'label':[],'len':[]}
+    for i,row in tqdm(rawTwitterData.iterrows()):
+        cleanedTweet = []
+        tweet,label = row['tweet'], row['label']
+        for word in tweet.split():
+            if (word != 'RT' and '@' not in word and "http" not in word):
+                cleanedTweet.append(word)
+                
+        length=len(cleanedTweet)   
+        cleanedTweets['tweet'].append(' '.join(cleanedTweet))
+        cleanedTweets['label'].append(label)
+        cleanedTweets['len'].append(length)
 
-			cleanedTweets[key].append(' '.join(cleanedTweet))
-
-	return pd.DataFrame(cleanedTweets)
+    return pd.DataFrame(cleanedTweets)
 
 """ Generates the vector of possible vocabulary words based on the sampled tweets, returned as a list of words """
 def generateDictionaryList(cleanedTwitterData):
@@ -37,10 +46,20 @@ def tweetToVec(tweet, vocab):
 
 	for word in tweet.split():
 		wordVec = np.zeros(vocabLength).tolist()
-		wordVec[vocab.index(word)] = 1.0
+		wordVec[vocab.index(word)] = 1
 		vec.append(wordVec)
 
 	return vec
+
+def padded_tweetToVec(tweet,vocab, pad_size):
+    # Returns tweet to vec vector padded with zeros at the end it has fixed size (pad_size)
+    vocabLength = len(vocab)
+    tvec = np.zeros((pad_size,vocabLength))
+    
+    for i,word in enumerate(tweet.split()):
+        tvec[i,vocab.index(word)] =1
+        
+    return tvec
 
 """ Converts a vector of one-hot encoded word vectors back into a string representing a tweet """
 def vecToTweet(tweetVec, vocab):
