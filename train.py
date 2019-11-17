@@ -25,7 +25,7 @@ if __name__ == '__main__':
     batch_size = 16
     
     #Load train set and test set
-    loaders = Loader(num_workers=1, batch_size=batch_size)
+    loaders = Loader(num_workers=1, batch_size=batch_size, clean= False, max_n=40000)
     train_loader, _, test_loader = loaders.get_data()
     
     #Model & hparams
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     
     model_params={'MAX_LEN': loaders.dataset.max_words,
                   'vocab_size': len(loaders.dataset.vocab),
-            'device': 'cpu',#'cuda' if torch.cuda.is_available() else 'cpu',
+            'device': 'cuda' if torch.cuda.is_available() else 'cpu',
             'N_properties':1} 
     model = tweetVAE(**model_params ).to(model_params['device']).float()
     
