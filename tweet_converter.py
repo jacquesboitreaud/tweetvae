@@ -2,6 +2,7 @@ import pickle
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+import re
 
 """ 
 I modified some functions to handle the tweet dataframe with columns (tweet, label)
@@ -9,7 +10,7 @@ instead of having several keys in the dict
 """
 
 
-""" Removes any words that are @ references to other twitter users, removes 'RT' used for retweets, and removes urls """
+""" Removes any words that are @ references to other twitter users, removes 'RT' used for retweets, and removes urls; keeps only words that contain alphanumerics characters and basic punctuation """
 def cleanTweets(rawTwitterData):
     """ Takes dataframe (tweet,label). Returns same with clean tweets """
     cleanedTweets = {'tweet':[], 'label':[],'len':[]}
@@ -17,7 +18,7 @@ def cleanTweets(rawTwitterData):
         cleanedTweet = []
         tweet,label = row['tweet'], row['label']
         for word in tweet.split():
-            if (word != 'RT' and '@' not in word and "http" not in word):
+            if (word != 'RT' and "http" not in word and bool(re.match(r'[\w.,?!\%/ \-()]+$', word))):
                 cleanedTweet.append(word)
                 
         length=len(cleanedTweet)   
@@ -87,4 +88,4 @@ def getVectorizedTweets():
 
 
 if __name__ == '__main__':
-	print("test")
+	
