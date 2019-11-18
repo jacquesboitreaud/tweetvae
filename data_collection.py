@@ -1,29 +1,68 @@
 from twython import Twython 
-import json 
 import pandas as pd
 import pickle
+from datetime import date 
 
 
 # Dict assigning an integer label to each of the topics we have 
 #label_dict={topic:i for topic,i in enumerate(topics)}
+def getID(lastWeek): 
+    query = {'q': 'e',
+        'result_type': 'mixed',
+        'count': 1,
+        'until': lastWeek,
+        'lang': 'en'} 
+    for status in python_tweets.search(**query)['statuses']:
+        curID = status['id']
+    return curID
+def getDate(): 
+    today = date.today()
+    day = today.strftime("%d")
+    month = today.strftime("%m")
+    year = today.strftime("%Y")
+    day = int(day) 
+    if (day>6): 
+        newDay = str(day - 6)
+        lastWeek =  year + '-' + month + '-' + newDay
+    elif month is not '01': 
+        newDay = str(30-(5-day))
+        newMonth = str(int(month) - 1)
+        lastWeek =  year + '-' + newMonth + '-' + newDay
+    else: 
+        newDay = str(30-(5-day))
+        newMonth = '12'
+        newYear = str(int(year)-1)
+        lastWeek =  newYear + '-' + newMonth + '-' + newDay
+    return lastWeek
 
-def getDivider(numTopic, numKeyword): 
-    return numTopic*numKeyword
-def getQuery(queryList,topic,data,requiredNum,curNum):
+def getQuery(keyword,count,curID,topic,data): 
+    query = {'q': keyword,
+    'result_type': 'mixed',
+    'count': count,
+    'lang': 'en',
+    'max_id': curID} 
+    for status in python_tweets.search(**query)['statuses']:
+        data.append([status['text'],int(topic)])
+    return data
+
+
+def getData(queryList,topic,data,requiredNum,curNum,divisor,curID):
     # set up how much data to retrieve !make sure that all lengths add up for dataframe
-    divider = getDivider(5,len(queryList))
-    count = requiredNum/divider
+    numTopic = requiredNum//divisor
     if topic is '4':
-        count = requiredNum - curNum
+        numTopic = (requiredNum - curNum) + 1
     # access api (note I had to used mixed for result type instead of popular to get the desired amount of tweets)
-    for keyword in queryList: 
-        curNum = curNum + count
-        query = {'q': keyword,
-         'result_type': 'mixed',
-         'count': count,
-         'lang': 'en'} 
-        for status in python_tweets.search(**query)['statuses']:
-            data.append([status['text'],int(topic)])
+    iterations = numTopic//100
+    overflow = numTopic%100
+    count = 100
+    while iterations>0:
+        for keyword in queryList: 
+            data = getQuery(keyword,count,curID,topic,data)
+            curID = curID + count
+            curNum = curNum + count
+        iterations = iterations-1
+    if overflow is not 0: 
+        data = getQuery(queryList[0],overflow,curID,topic,data)
     return data, curNum
 
 
@@ -44,9 +83,15 @@ queryDict = {'0': queryPolitics, '1': querySports, '2': queryMovies, '3': queryC
 data = []
 requiredNum = 200000
 curNum = 0
+divisor = 4
+
+for key in queryDict:
+    divisor = divisor + len(queryDict[key])
+lastWeek = getDate()
+curID = getID(lastWeek)
 # iterate through queries and retrieve data from twitter
 for key in queryDict: 
-    data,curNum= getQuery(queryDict[key],key,data,requiredNum,curNum)
+    data,curNum= getData(queryDict[key],key,data,requiredNum,curNum,divisor,curID)
     
 # for k,v in data.items():
 #     print(len(v))
