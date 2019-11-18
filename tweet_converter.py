@@ -1,4 +1,3 @@
-import pickle
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -9,6 +8,14 @@ I modified some functions to handle the tweet dataframe with columns (tweet, lab
 instead of having several keys in the dict
 """
 
+def clean_dataframe(df):
+    """ Takes dataframe as input, filters out nan and inf values if there are. Returns clean df """
+    df=df.replace([np.inf, -np.inf], np.nan)
+    print('N items before dropping: ', df.shape[0])
+    df=df.dropna()
+    print('After dropping: ', df.shape[0])
+    df=df.reset_index(drop=True)
+    return df
 
 """ Removes any words that are @ references to other twitter users, removes 'RT' used for retweets, and removes urls; keeps only words that contain alphanumerics characters and basic punctuation """
 def cleanTweets(rawTwitterData):
@@ -71,21 +78,5 @@ def vecToTweet(tweetVec, vocab):
 	return ' '.join(constructedTweet)
 
 
-""" Loads the collected tweets, encodes them with one-hot encoding, and returns the results """
-def getVectorizedTweets():
-	rawData = pickle.load(open('rawTwitterData.pickle', 'rb'))
-	cleanedData = cleanTweets(rawData)
-	sampleVocab = generateDictionaryList(cleanedData)
-
-	vectorizedTweets = {}
-
-	for key in cleanedData.keys():
-		vectorizedTweets[key] = []
-		for atweet in cleanedData[key]:
-			vectorizedTweets[key].append(tweetToVec(atweet, sampleVocab))
-
-	return vectorizedTweets
-
-
 if __name__ == '__main__':
-	
+	print("test")
