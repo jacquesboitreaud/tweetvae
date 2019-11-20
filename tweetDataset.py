@@ -53,7 +53,13 @@ class tweetDataset(Dataset):
         self.n = self.df.shape[0]
         self.max_words = max(self.df['len']) # Longest tweet in dataset 
         # Get dataset vocabulary 
-        self.vocab = self._get_vocab()
+        vocab = self._get_vocab()
+        self.word_to_ids = {w:i for (i,w) in enumerate(vocab)}
+        self.ids_to_words = {i:w for (i,w) in enumerate(vocab)}
+        # EOS token 
+        self.EOS_token = len(vocab) 
+        self.words_to_ids['EOS']=self.EOS_token
+        self.ids_to_words[self.EOS_token]='EOS'
         
         print(f'Dataset contains {self.n} tweets, max N_words: {self.max_words}, vocab size : {len(self.vocab)}' )
         
@@ -65,14 +71,14 @@ class tweetDataset(Dataset):
         return self.n
     
     def __getitem__(self, idx):
-        # Returns one-hot tweet tensor , label or only one-hot tweet
+        # Returns vector of word-indices and label
         
         tweet, label, length = self.df.loc[idx,['tweet','label','len']]
-        
         # Convert tweet to one hot
-        onehot = torch.tensor(padded_tweetToVec(tweet, self.vocab, self.max_words), dtype=torch.float)
+        word_ids = torch.tensor([self.word_to_id[w] for w in tweet], dtype=torch.long)
+        word_ids.append(self.EOS_token)
         
-        return onehot, length, torch.tensor(label, dtype=torch.float)
+        return word_ids, torch.tensor(length, dtype=torch.long), torch.tensor(label, dtype=torch.long)
     
     def _get_vocab(self):
         # Returns set of words found in tweets in the dataset 

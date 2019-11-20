@@ -7,7 +7,7 @@ Created on Mon Apr 22 11:44:23 2019
 Required parameters:
     - device to run
     - N_properties (Dimension of label) any additionnal topic we would like to predict from the latent representation
-
+    - N_categories : number of tweet categories / topics 
 
 
 """
@@ -33,8 +33,8 @@ class tweetVAE(nn.Module):
         super(tweetVAE, self).__init__()
         
         self.kappa=1
-        self.voc_size=kwargs['vocab_size']
-        self.max_len=kwargs['MAX_LEN']
+        self.voc_size=kwargs['vocab_size']+1 # EOS token 
+        self.max_len=kwargs['MAX_LEN']+1 # EOS token 
         
         self.latent_size= 50
         self.h_size=400
@@ -43,29 +43,34 @@ class tweetVAE(nn.Module):
         
         # For multitask properties prediction (topic, sentiment, etc...)
         self.N_properties=kwargs['N_properties']
+        self.N_topics = kwargs['N_topics']
         
         
         # ENCODER
-        self.birnn = torch.nn.GRU(input_size=self.voc_size, hidden_size=400, num_layers=1,
+        self.embedding = nn.Embedding(self.voc_size, self.h_size)
+        self.birnn = torch.nn.GRU(input_size=self.h_size, self.h_size, num_layers=1,
                                   batch_first=True, bidirectional=True)
         
         # Latent mean and variance
-        self.linear_encoder=nn.Linear(800,self.latent_size)
+        self.linear_encoder=nn.Linear(2*self.h_size,self.latent_size)
         self.encoder_mean = nn.Linear(self.latent_size , self.latent_size)
         self.encoder_logv = nn.Linear(self.latent_size , self.latent_size)
         
         # DECODER: Multilayer GRU, trained with teacher forcing
-        self.rnn_decoder = nn.GRU(input_size=self.voc_size, hidden_size=400, num_layers=3,
+        self.rnn_decoder = nn.GRU(input_size=self.voc_size, hidden_size=self.h_size, num_layers=3,
                                   batch_first=True, bidirectional=False)
         
         self.dense_init=nn.Linear(self.latent_size,3*self.h_size) # to initialise hidden state
-        self.dense_out=nn.Linear(400,self.voc_size)
+        self.dense_out=nn.Linear(self.h_size,self.voc_size)
         
         # PROPERTY REGRESSOR (may change to classifier with sigmoid and bce loss)
         self.MLP=nn.Sequential(
-                nn.Linear(self.latent_size,64),
+                nn.Linear(self.latent_size,32),
                 nn.ReLU(),
-                nn.Linear(64,self.N_properties))
+                nn.Linear(32,16),
+                nn.ReLU(),
+                nn.Linear(16,self.N_topics),
+                nn.Softmax())
         
 
     def encode(self, x, x_true_len):
@@ -75,9 +80,11 @@ class tweetVAE(nn.Module):
         Out: mean and logv, (batch_size * latent_size ) 
         
         """
+        
+        x = self.embedding(x)
+        packed = pack_padded_sequence(x, x_true_len.cpu().numpy())
         # Pass to 2directional rnn
-        packed = pack_padded_sequence(x, x_true_len, batch_first=True)
-        bi_output, bi_hidden = self.birnn(packed)
+        bi_output, bi_hidden = self.birnn(embedded)
         
         # Keep last hidden state of both layers and pass to dense layer
         bi_hidden = bi_hidden.view(x.shape[0],-1)
@@ -134,7 +141,7 @@ class tweetVAE(nn.Module):
             
         return gen_seq, mean, logv, properties
 
-def Loss(out, x, mu, logvar, y=None, pred_label=None, kappa=1.0):
+def Loss(out, x_indices, mu, logvar, y=None, pred_label=None, kappa=1.0):
     """ 
     Loss function, 3 components;
         - reconstruction 
@@ -142,12 +149,13 @@ def Loss(out, x, mu, logvar, y=None, pred_label=None, kappa=1.0):
         - mean squared error for properties prediction
     
     """
-    BCE = F.binary_cross_entropy(out, x, reduction="sum")
+    rec = F.cross_entropy(out, x_indices, reduction="sum")
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    error= F.mse_loss(pred_label, y, reduction="sum")
-    total_loss=BCE + kappa*KLD + error
+    error= F.cross_entropy(pred_label, y, reduction="sum")
+    
+    total_loss=rec + kappa*KLD + error
         
-    return total_loss, BCE, KLD, error # returns 4 values
+    return total_loss, rec, KLD, error # returns 4 values
      
     
 def set_kappa(epoch, batch_idx,N_batches):

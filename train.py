@@ -23,6 +23,13 @@ if __name__ == '__main__':
     # config
     n_epochs = 20 # epochs to train
     batch_size = 64
+    # File to save the model's weights
+    SAVE_FILENAME='./saved_model_w/c2c.pth'
+    LOGS='../data/logs_c2c.npy'
+    # To load model 
+    SAVED_MODEL_PATH ='./saved_model_w/c2c.pth'
+    LOAD_MODEL=True # set to true to load pretrained model
+    SAVE_MODEL=True
     
     #Load train set and test set
     loaders = Loader(num_workers=1, batch_size=batch_size, clean= False, max_n=40000)
@@ -36,6 +43,10 @@ if __name__ == '__main__':
             'device': 'cuda' if torch.cuda.is_available() else 'cpu',
             'N_properties':1} 
     model = tweetVAE(**model_params ).to(model_params['device']).float()
+    
+    if(LOAD_MODEL):
+        print("loading network coeffs")
+        load_my_state_dict(model, torch.load(SAVED_MODEL_PATH, map_location=map))
     
     parallel=False
     if (parallel): #torch.cuda.device_count() > 1 and
@@ -51,6 +62,17 @@ if __name__ == '__main__':
              'decay_freq':4,
              'decay_factor':0.8}
     
+    # Logs dict 
+    logs={'train_l':[],
+           'train_rec':[],
+           'test_rec':[],
+           'train_div':[],
+           'test_div':[],
+           'train_mse':[],
+           'test_mse':[],
+           'test_l':[]
+           }
+    
     #Train & test
     for epoch in range(1, n_epochs+1):
         print(f'Starting epoch {epoch}')
@@ -64,17 +86,21 @@ if __name__ == '__main__':
             kappa=1
             
             # Get data to GPU
-            true_seqs = data[0].to(model_params['device'])
+            true_idces = data[0].to(model_params['device'])
             seq_lengths = data[1] #1D int CPU tensor
             l_target= data[2].to(model_params['device']).view(-1,1)
             
+            seq_tensor = torch.zeros((batch_size, model.max_len)).long().cuda()
+            for idx, (seq, seqlen) in enumerate(zip(true_idces, seq_lengths)):
+                seq_tensor[idx, :seqlen] = torch.LongTensor(seq)
+            
             # Sort 
             seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
-            true_seqs,l_target = true_seqs[perm_idx], l_target[perm_idx]
+            true_idces,l_target = true_idces[perm_idx], l_target[perm_idx]
             
             #=========== forward ==========================
-            recon_batch, mu, logvar, label = model(true_seqs, seq_lengths)
-            tr_loss, rec, div, mse = Loss(recon_batch,true_seqs, mu, logvar,
+            recon_batch, mu, logvar, label = model(true_idces, seq_lengths)
+            tr_loss, rec, div, mse = Loss(recon_batch,true_idces, mu, logvar,
                                                          y=l_target, pred_label= label,
                                                          kappa = kappa)
                 
@@ -98,20 +124,26 @@ if __name__ == '__main__':
             mse_tot += mse.item()
     
         
-        # Decay learning rate: 
+        # At the end of each training epoch:
+        #Decay learning rate: 
         lr_decay(optimizer,epoch, lr_schedule)
+        
+        # Append logs
+        logs['train_l'].append(l_tot)
+        logs['train_rec'].append(rec_tot)
+        logs['train_div'].append(kl_tot)
+        logs['train_mse'].append(mse_tot)
     
     
     # Validation pass
     model.eval()
-    t_loss = 0
+    l_tot, rec_tot, div_tot, mse_tot = 0
     with torch.no_grad():
         # test set pass
-        l_tot, rec_tot, mse_tot =0,0,0
     
         for batch_idx, data in enumerate(test_loader):
         
-            true_seqs = data[0].to(model_params['device'])
+            true_idces = data[0].to(model_params['device'])
             seq_lengths = data[1]
             l_target= data[2].to(model_params['device']).view(-1,1)
             
@@ -120,7 +152,8 @@ if __name__ == '__main__':
             true_seqs = true_seqs[perm_idx]
             
             #=========== forward ==========================
-            recon_batch, mu, logvar, label= model(true_seqs, seq_lengths)
+            recon_batch, mu, logvar, label= model(true_idces, seq_lengths)
+            
             t_loss, rec, div, mse = Loss(recon_batch, true_seqs, mu, logvar,
                                                          y=l_target, pred_label= label,
                                                          kappa = 0)
@@ -129,6 +162,7 @@ if __name__ == '__main__':
                 
             l_tot += t_loss.item()
             rec_tot += rec.item()
+            div_tot += div.item()
             mse_tot += mse.item()
             
             # Print some monitoring stats for the first batch of test subset:
@@ -136,4 +170,10 @@ if __name__ == '__main__':
                 # Monitor loss at a character level
                 loss_per_timestep = rec.item()/(150*recon_batch.shape[0])
                 print("Test cross-entropy loss per word : ", loss_per_timestep)
+        
+        # At the end of the test set pass : 
+        logs['test_l'].append(l_tot)
+        logs['test_mse'].append(mse_tot)
+        logs['test_rec'].append(rec_tot)
+        logs['test_div'].append(div_tot)
         
