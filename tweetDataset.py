@@ -54,14 +54,15 @@ class tweetDataset(Dataset):
         self.max_words = max(self.df['len']) # Longest tweet in dataset 
         # Get dataset vocabulary 
         vocab = self._get_vocab()
-        self.word_to_ids = {w:i for (i,w) in enumerate(vocab)}
+        self.voc_len = len(vocab)
+        self.words_to_ids = {w:i for (i,w) in enumerate(vocab)}
         self.ids_to_words = {i:w for (i,w) in enumerate(vocab)}
         # EOS token 
         self.EOS_token = len(vocab) 
         self.words_to_ids['EOS']=self.EOS_token
         self.ids_to_words[self.EOS_token]='EOS'
         
-        print(f'Dataset contains {self.n} tweets, max N_words: {self.max_words}, vocab size : {len(self.vocab)}' )
+        print(f'Dataset contains {self.n} tweets, max N_words: {self.max_words}, vocab size : {self.voc_len}' )
         
         if(debug):
             # special case for debugging
@@ -75,7 +76,7 @@ class tweetDataset(Dataset):
         
         tweet, label, length = self.df.loc[idx,['tweet','label','len']]
         # Convert tweet to one hot
-        word_ids = torch.tensor([self.word_to_id[w] for w in tweet], dtype=torch.long)
+        word_ids = torch.tensor([self.words_to_ids[w] for w in tweet], dtype=torch.long)
         word_ids.append(self.EOS_token)
         
         return word_ids, torch.tensor(length, dtype=torch.long), torch.tensor(label, dtype=torch.long)

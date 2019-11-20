@@ -39,9 +39,10 @@ if __name__ == '__main__':
     
     
     model_params={'MAX_LEN': loaders.dataset.max_words,
-                  'vocab_size': len(loaders.dataset.vocab),
-            'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-            'N_properties':1} 
+                  'vocab_size': loaders.dataset.voc_len,
+                  'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+                  'N_properties':1,
+                  'N_topics':5} 
     model = tweetVAE(**model_params ).to(model_params['device']).float()
     
     if(LOAD_MODEL):
