@@ -29,7 +29,7 @@ def cleanTweets(rawTwitterData):
                 cleanedTweet.append(word)
                 
         length=len(cleanedTweet)   
-        cleanedTweets['tweet'].append(' '.join(cleanedTweet))
+        cleanedTweets['tweet'].append(''.join(cleanedTweet))
         cleanedTweets['label'].append(label)
         cleanedTweets['len'].append(length)
 
