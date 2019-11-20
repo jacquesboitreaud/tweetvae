@@ -48,7 +48,7 @@ class tweetVAE(nn.Module):
         
         # ENCODER
         self.embedding = nn.Embedding(self.voc_size, self.h_size)
-        self.birnn = torch.nn.GRU(input_size=self.h_size, self.h_size, num_layers=1,
+        self.birnn = torch.nn.GRU(input_size=self.h_size, hidden_size=self.h_size, num_layers=1,
                                   batch_first=True, bidirectional=True)
         
         # Latent mean and variance

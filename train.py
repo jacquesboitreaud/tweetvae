@@ -21,18 +21,18 @@ from utils import *
 if __name__ == '__main__': 
 
     # config
-    n_epochs = 20 # epochs to train
+    n_epochs = 2 # epochs to train
     batch_size = 64
     # File to save the model's weights
     SAVE_FILENAME='./saved_model_w/c2c.pth'
     LOGS='../data/logs_c2c.npy'
     # To load model 
     SAVED_MODEL_PATH ='./saved_model_w/c2c.pth'
-    LOAD_MODEL=True # set to true to load pretrained model
+    LOAD_MODEL=False # set to true to load pretrained model
     SAVE_MODEL=True
     
     #Load train set and test set
-    loaders = Loader(num_workers=1, batch_size=batch_size, clean= False, max_n=40000)
+    loaders = Loader(num_workers=1, batch_size=batch_size, clean= False, max_n=4000)
     train_loader, _, test_loader = loaders.get_data()
     
     #Model & hparams
