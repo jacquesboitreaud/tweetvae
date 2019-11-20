@@ -4,13 +4,9 @@ Created on Thu May  2 10:14:11 2019
 
 @author: jacqu
 
-Utils functions for preprocessing
+variable wrapper for pytorch + Beam Search utils for decoding with beam search
 """
 import numpy as np
-from rdkit import Chem
-from rdkit.Chem import Draw, QED, Crippen, Descriptors, rdMolDescriptors, GraphDescriptors
-import matplotlib.pyplot as plt
-import json
 import pandas as pd
 import torch
 

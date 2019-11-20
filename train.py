@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     # config
     n_epochs = 20 # epochs to train
-    batch_size = 16
+    batch_size = 64
     
     #Load train set and test set
     loaders = Loader(num_workers=1, batch_size=batch_size, clean= False, max_n=40000)
