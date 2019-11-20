@@ -32,7 +32,7 @@ if __name__ == '__main__':
     SAVE_MODEL=True
     
     #Load train set and test set
-    loaders = Loader(num_workers=1, batch_size=batch_size, clean= False, max_n=4000)
+    loaders = Loader(num_workers=1, batch_size=batch_size, clean= True, max_n=4000)
     train_loader, _, test_loader = loaders.get_data()
     
     #Model & hparams
