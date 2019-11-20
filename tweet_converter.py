@@ -29,7 +29,7 @@ def cleanTweets(rawTwitterData):
                 cleanedTweet.append(word)
                 
         length=len(cleanedTweet)   
-        cleanedTweets['tweet'].append(''.join(cleanedTweet))
+        cleanedTweets['tweet'].append(' '.join(cleanedTweet))
         cleanedTweets['label'].append(label)
         cleanedTweets['len'].append(length)
 
@@ -79,4 +79,19 @@ def vecToTweet(tweetVec, vocab):
 
 
 if __name__ == '__main__':
-	print("test")
+    #for testing purposes
+    testSet = pd.read_csv("test.csv")
+    cleaned = cleanTweets(testSet)
+    print(cleaned)
+    cleanedDF = clean_dataframe(cleaned)
+    print(cleanedDF)
+
+    sample_vocab = []
+    for tweet in cleanedDF['tweet']:
+        if(type(tweet)!=str):
+            print('type error, ', type(tweet), tweet)
+        for word in tweet.split():
+            if (word not in sample_vocab):
+                sample_vocab.append(word)
+    #print(sample_vocab)
+    print(max(cleanedDF['len']))

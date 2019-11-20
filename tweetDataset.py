@@ -95,6 +95,7 @@ class tweetDataset(Dataset):
 class Loader():
     def __init__(self,
                  path='data/train.csv',
+                 #path="test.csv",
                  batch_size=128,
                  num_workers=1,
                  clean=True,

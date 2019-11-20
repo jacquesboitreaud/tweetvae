@@ -2,3 +2,8 @@ data
 __pycache__
 *.pickle
 saved_model_w
+test.zip
+
+test.csv
+
+.DS_Store
