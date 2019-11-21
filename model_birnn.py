@@ -33,8 +33,8 @@ class tweetVAE(nn.Module):
         super(tweetVAE, self).__init__()
         
         self.kappa=1
-        self.voc_size=kwargs['vocab_size']+2 # EOS token 
-        self.max_len=kwargs['MAX_LEN']+2 # EOS token 
+        self.voc_size=kwargs['vocab_size']+2 # EOS token , SOS token
+        self.max_len=kwargs['MAX_LEN']+2 # EOS token , SOS token
         
         self.latent_size= 50
         self.h_size=400
