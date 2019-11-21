@@ -33,7 +33,7 @@ if __name__ == '__main__':
     SAVE_MODEL=True
     
     #Load train set and test set
-    loaders = Loader(num_workers=4, batch_size=batch_size, clean= False, max_n=200000)
+    loaders = Loader(num_workers=4, batch_size=batch_size, clean= True, max_n=200000)
     train_loader, _, test_loader = loaders.get_data()
     # Save vocabulary for later (evaluation):
     pickle.dump(open("./saved_model_w/vocabulary.pickle","wb"),loaders.dataset.words_to_ids)
