@@ -21,7 +21,7 @@ from utils import *
 if __name__ == '__main__': 
 
     # config
-    n_epochs = 2 # epochs to train
+    n_epochs = 1 # epochs to train
     batch_size = 64
     # File to save the model's weights
     SAVE_FILENAME='./saved_model_w/c2c.pth'
@@ -92,8 +92,8 @@ if __name__ == '__main__':
             l_target= data[2].to(model_params['device']).view(-1,1)
             
             seq_tensor = torch.zeros((batch_size, model.max_len)).long().cuda()
-            for idx, (seq, seqlen) in enumerate(zip(true_idces, seq_lengths)):
-                seq_tensor[idx, :seqlen] = torch.LongTensor(seq)
+            for idx, seq in enumerate(true_idces):
+                seq_tensor[idx] = torch.LongTensor(seq)
             
             # Sort 
             seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)

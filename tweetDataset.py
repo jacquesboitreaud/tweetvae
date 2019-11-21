@@ -43,11 +43,10 @@ class tweetDataset(Dataset):
         self.df = pd.read_csv(data_file, nrows=n_tweets)
         if(clean):
             print('Cleaning data. Will be saved in ./data directory for next time')
-            df = cleanTweets(self.df) # filter out weird symbols 
-            df = clean_dataframe(df) # remove nan values 
+            self.df = clean_dataframe(self.df) # remove nan values 
+            self.df = cleanTweets(self.df) # filter out weird symbols 
             # Save for next time
-            df.to_csv(data_file)
-            self.df=df
+            self.df.to_csv(data_file)
         
 
         self.n = self.df.shape[0]
@@ -75,11 +74,14 @@ class tweetDataset(Dataset):
         # Returns vector of word-indices and label
         
         tweet, label, length = self.df.loc[idx,['tweet','label','len']]
-        # Convert tweet to one hot
-        word_ids = torch.tensor([self.words_to_ids[w] for w in tweet], dtype=torch.long)
+        word_ids=[self.words_to_ids[w] for w in tweet.split()]
         word_ids.append(self.EOS_token)
+        length+=1 # account for EOS token
         
-        return word_ids, torch.tensor(length, dtype=torch.long), torch.tensor(label, dtype=torch.long)
+        word_tensor = torch.zeros(self.max_words+1, dtype=torch.long) # words + EOS token 
+        word_tensor[:length]=torch.tensor(word_ids,dtype=torch.long)
+        
+        return word_tensor, torch.tensor(length, dtype=torch.long), torch.tensor(label, dtype=torch.long)
     
     def _get_vocab(self):
         # Returns set of words found in tweets in the dataset 

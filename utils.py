@@ -37,3 +37,11 @@ class BeamSearchNode():
         # To break score equality cases randomly
         return True
             
+def prepare_set():
+    # Prepares training set when just downloaded from web
+    df=pd.read_csv('data/train.csv', header=None, encoding="ISO-8859-1")
+    df.columns = ['label', 'id', 'date', 'query', 'auth_name', 'tweet' ]
+    df.to_csv('data/train.csv')
+
+if(__name__=='__main__'):
+    df=prepare_set()
