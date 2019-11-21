@@ -21,18 +21,18 @@ from utils import *
 if __name__ == '__main__': 
 
     # config
-    n_epochs = 1 # epochs to train
+    n_epochs = 60 # epochs to train
     batch_size = 64
     # File to save the model's weights
-    SAVE_FILENAME='./saved_model_w/c2c.pth'
-    LOGS='../data/logs_c2c.npy'
+    SAVE_FILENAME='./saved_model_w/first_try.pth'
+    LOGS='../data/logs_first_try.npy'
     # To load model 
-    SAVED_MODEL_PATH ='./saved_model_w/c2c.pth'
+    SAVED_MODEL_PATH ='./saved_model_w/first_try.pth'
     LOAD_MODEL=False # set to true to load pretrained model
     SAVE_MODEL=True
     
     #Load train set and test set
-    loaders = Loader(num_workers=1, batch_size=batch_size, clean= True, max_n=4000)
+    loaders = Loader(num_workers=4, batch_size=batch_size, clean= True, max_n=1000000)
     train_loader, _, test_loader = loaders.get_data()
     
     #Model & hparams
@@ -57,11 +57,11 @@ if __name__ == '__main__':
     #Print model summary
     print(model)
     map = ('cpu' if model_params['device'] == 'cpu' else None)
-    optimizer = optim.Adam(model.parameters())
-    #optimizer = optim.Adam(model.parameters(),lr=1e-4, weight_decay=1e-5)
     lr_schedule={'initial_lr':5e-4,
              'decay_freq':4,
              'decay_factor':0.8}
+    optimizer = optim.SGD(model.parameters(), lr= lr_schedule['initial_lr'])
+    #optimizer = optim.Adam(model.parameters(),lr=1e-4, weight_decay=1e-5)
     
     # Logs dict 
     logs={'train_l':[],
@@ -83,15 +83,17 @@ if __name__ == '__main__':
         for batch_idx, data in enumerate(train_loader):
             
             # VAE loss annealing 
-            #kappa=set_kappa(epoch, batch_idx,N_batches)
-            kappa=1
+            kappa=set_kappa(epoch, batch_idx,len(train_loader))
+            #kappa=0
             
             # Get data to GPU
-            true_idces = data[0].to(model_params['device'])
+            true_idces = data[0]
             seq_lengths = data[1] #1D int CPU tensor
+            #print(len(seq_lengths), true_idces.shape)
+            
             l_target= data[2].to(model_params['device']).view(-1,1)
             
-            seq_tensor = torch.zeros((batch_size, model.max_len)).long().cuda()
+            seq_tensor = torch.zeros((batch_size,model.max_len)).long().cuda()
             for idx, seq in enumerate(true_idces):
                 seq_tensor[idx] = torch.LongTensor(seq)
             
@@ -99,9 +101,12 @@ if __name__ == '__main__':
             seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
             true_idces,l_target = true_idces[perm_idx], l_target[perm_idx]
             
+            #print(seq_tensor.shape)
+            #print(seq_lengths.shape)
+            
             #=========== forward ==========================
-            recon_batch, mu, logvar, label = model(true_idces, seq_lengths)
-            tr_loss, rec, div, mse = Loss(recon_batch,true_idces, mu, logvar,
+            recon_batch, mu, logvar, label = model(seq_tensor, seq_lengths)
+            tr_loss, rec, div, mse = Loss(recon_batch,true_idces.to(model_params['device']), mu, logvar,
                                                          y=l_target, pred_label= label,
                                                          kappa = kappa)
                 
@@ -138,7 +143,7 @@ if __name__ == '__main__':
     
     # Validation pass
     model.eval()
-    l_tot, rec_tot, div_tot, mse_tot = 0
+    l_tot, rec_tot, div_tot, mse_tot = 0,0,0,0
     with torch.no_grad():
         # test set pass
     
@@ -150,12 +155,12 @@ if __name__ == '__main__':
             
             # Sort 
             seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
-            true_seqs = true_seqs[perm_idx]
+            true_idces = true_idces[perm_idx]
             
             #=========== forward ==========================
             recon_batch, mu, logvar, label= model(true_idces, seq_lengths)
             
-            t_loss, rec, div, mse = Loss(recon_batch, true_seqs, mu, logvar,
+            t_loss, rec, div, mse = Loss(recon_batch, true_idces.to(model_params['device']), mu, logvar,
                                                          y=l_target, pred_label= label,
                                                          kappa = 0)
                 
@@ -177,4 +182,9 @@ if __name__ == '__main__':
         logs['test_mse'].append(mse_tot)
         logs['test_rec'].append(rec_tot)
         logs['test_div'].append(div_tot)
+        
+        if (SAVE_MODEL): # Save model every epoch
+            torch.save( model.state_dict(), SAVE_FILENAME)
+            print(f"model saved to {SAVE_FILENAME}")
+            best_loss=l_tot
         

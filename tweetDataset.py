@@ -58,8 +58,11 @@ class tweetDataset(Dataset):
         self.ids_to_words = {i:w for (i,w) in enumerate(vocab)}
         # EOS token 
         self.EOS_token = len(vocab) 
+        self.SOS_token = len(vocab)+1
         self.words_to_ids['EOS']=self.EOS_token
         self.ids_to_words[self.EOS_token]='EOS'
+        self.words_to_ids['SOS']=self.SOS_token
+        self.ids_to_words[self.SOS_token]='SOS'
         
         print(f'Dataset contains {self.n} tweets, max N_words: {self.max_words}, vocab size : {self.voc_len}' )
         
@@ -78,7 +81,7 @@ class tweetDataset(Dataset):
         word_ids.append(self.EOS_token)
         length+=1 # account for EOS token
         
-        word_tensor = torch.zeros(self.max_words+1, dtype=torch.long) # words + EOS token 
+        word_tensor = torch.zeros(self.max_words+2, dtype=torch.long) # words + EOS token, SOS token 
         word_tensor[:length]=torch.tensor(word_ids,dtype=torch.long)
         
         return word_tensor, torch.tensor(length, dtype=torch.long), torch.tensor(label, dtype=torch.long)
@@ -137,13 +140,13 @@ class Loader():
 
 
         train_loader = DataLoader(dataset=train_set, shuffle=False, batch_size=self.batch_size,
-                                  num_workers=self.num_workers)
+                                  num_workers=self.num_workers,drop_last=True)
 
         # valid_loader = DataLoader(dataset=valid_set, shuffle=True, batch_size=self.batch_size,
         #                           num_workers=self.num_workers, collate_fn=collate_block)
         
         test_loader = DataLoader(dataset=test_set, shuffle=False, batch_size=self.batch_size,
-                                 num_workers=self.num_workers)
+                                 num_workers=self.num_workers,drop_last=True)
 
 
         # return train_loader, valid_loader, test_loader

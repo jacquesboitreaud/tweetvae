@@ -33,8 +33,8 @@ class tweetVAE(nn.Module):
         super(tweetVAE, self).__init__()
         
         self.kappa=1
-        self.voc_size=kwargs['vocab_size']+1 # EOS token 
-        self.max_len=kwargs['MAX_LEN']+1 # EOS token 
+        self.voc_size=kwargs['vocab_size']+2 # EOS token 
+        self.max_len=kwargs['MAX_LEN']+2 # EOS token 
         
         self.latent_size= 50
         self.h_size=400
@@ -47,7 +47,7 @@ class tweetVAE(nn.Module):
         
         
         # ENCODER
-        self.embedding = nn.Embedding(self.voc_size, self.h_size)
+        self.embedding = nn.Embedding(self.voc_size, self.h_size) # num embeddings * size of emb vector
         self.birnn = torch.nn.GRU(input_size=self.h_size, hidden_size=self.h_size, num_layers=1,
                                   batch_first=True, bidirectional=True)
         
@@ -57,7 +57,8 @@ class tweetVAE(nn.Module):
         self.encoder_logv = nn.Linear(self.latent_size , self.latent_size)
         
         # DECODER: Multilayer GRU, trained with teacher forcing
-        self.rnn_decoder = nn.GRU(input_size=self.voc_size, hidden_size=self.h_size, num_layers=3,
+        # We reuse the embedding layer before passing input to rnn_decoder, hence input_size = h_size
+        self.rnn_decoder = nn.GRU(input_size=self.h_size, hidden_size=self.h_size, num_layers=3,
                                   batch_first=True, bidirectional=False)
         
         self.dense_init=nn.Linear(self.latent_size,3*self.h_size) # to initialise hidden state
@@ -70,7 +71,7 @@ class tweetVAE(nn.Module):
                 nn.Linear(32,16),
                 nn.ReLU(),
                 nn.Linear(16,self.N_topics),
-                nn.Softmax())
+                nn.Softmax(dim=1))
         
 
     def encode(self, x, x_true_len):
@@ -82,9 +83,9 @@ class tweetVAE(nn.Module):
         """
         
         x = self.embedding(x)
-        packed = pack_padded_sequence(x, x_true_len.cpu().numpy())
+        packed = pack_padded_sequence(x, x_true_len.cpu().numpy(), batch_first=True)
         # Pass to 2directional rnn
-        bi_output, bi_hidden = self.birnn(embedded)
+        bi_output, bi_hidden = self.birnn(packed)
         
         # Keep last hidden state of both layers and pass to dense layer
         bi_hidden = bi_hidden.view(x.shape[0],-1)
@@ -107,23 +108,26 @@ class tweetVAE(nn.Module):
             Unrolls decoder RNN to generate a batch of sequences, using teacher forcing
             Args:
                 z: (batch_size * latent_shape) : a sampled vector in latent space
-                x_true: (batch_size * sequence_length * voc_size) a batch of sequences
+                x_true: (batch_size * sequence_length) a batch of sequence (word indices)
             Outputs:
                 gen_seq : (batch_size * seq_length * voc_size) a batch of generated sequences
                 
         """
-        batch_size=z.shape[0]
+        batch_size, seq_len =x_true.shape
         
         # Init hidden with z sampled in latent space
         h0=self.dense_init(z).view(3,batch_size, self.h_size)
         
-        x_offset = torch.cat((torch.zeros(batch_size,1,self.voc_size).to(self.device), x_true[:,:-1,:]),dim=1 )
+        SOS_token = self.voc_size-1 # index of SOS token in embeddings table
+        start=np.ones((batch_size,1))*SOS_token
+        
+        x_offset = torch.cat((torch.tensor(start,dtype=torch.long).to(self.device), x_true[:,:-1]),dim=1 )
+        x_offset = self.embedding(x_offset)
         # pass to GRU with teacher forcing
         out, h = self.rnn_decoder(x_offset, h0)
         out=self.dense_out(out) # Go from hidden size to voc size 
-        gen_seq = F.softmax(out, dim=1) # Shape N, voc_size
-        return gen_seq
-    
+        #gen_seq = F.softmax(out, dim=1) # Shape N, voc_size
+        return out
     
     def get_properties(self,z):
         """ Forward pass of the latent vector to generate molecular properties"""
@@ -149,9 +153,10 @@ def Loss(out, x_indices, mu, logvar, y=None, pred_label=None, kappa=1.0):
         - mean squared error for properties prediction
     
     """
-    rec = F.cross_entropy(out, x_indices, reduction="sum")
+    rec = F.cross_entropy(out.transpose(2,1), x_indices, reduction="sum")
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    error= F.cross_entropy(pred_label, y, reduction="sum")
+    
+    error= F.cross_entropy(pred_label, y.view(-1), reduction="sum")
     
     total_loss=rec + kappa*KLD + error
         
