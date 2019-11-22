@@ -105,7 +105,7 @@ class Loader():
                  num_workers=1,
                  clean=True,
                  debug=False,
-                 shuffled=False,
+                 shuffled=True,
                  max_n = 200000):
         """
         Wrapper for test loader, train loader 
