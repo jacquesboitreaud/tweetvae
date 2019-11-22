@@ -65,7 +65,7 @@ if __name__ == '__main__':
     #Print model summary
     print(model)
     map = ('cpu' if model_params['device'] == 'cpu' else None)
-    lr_schedule={'initial_lr':1-3,
+    lr_schedule={'initial_lr':1e-3,
              'decay_freq':4,
              'decay_factor':0.8}
     optimizer = optim.SGD(model.parameters(), lr= lr_schedule['initial_lr'])
