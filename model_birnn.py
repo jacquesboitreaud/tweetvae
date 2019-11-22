@@ -167,7 +167,7 @@ def set_kappa(epoch, batch_idx,N_batches):
     """ Sets the kappa coefficient for the KLD in objective function.
         cyclical scheduling after epoch 5. 
     """
-    if(epoch<=5):
+    if(epoch<=30):
         return 0
     else:
         kappa = min(2*batch_idx/N_batches,1)

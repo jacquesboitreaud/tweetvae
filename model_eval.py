@@ -56,10 +56,11 @@ N = output_batch.shape[0]
 for k in range(N):
     prev_word, tweet=' ', ' '
     timestep = 0
-    while(prev_word!='EOS'):
+    while(prev_word!='EOS'and timestep<model_params['MAX_LEN']):
         prev_word= ids_to_words(np.argmax(output_batch[k,timestep]))
         tweet += prev_word
         tweet+=' '
+        timestep+=1
     print(tweet)
 
 # Latent space structure : 

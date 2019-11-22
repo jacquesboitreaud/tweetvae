@@ -23,7 +23,7 @@ from utils import *
 if __name__ == '__main__': 
 
     # config
-    n_epochs = 60 # epochs to train
+    n_epochs = 100 # epochs to train
     batch_size = 64
     # File to save the model's weights
     SAVE_FILENAME='./saved_model_w/first_try.pth'
@@ -204,6 +204,8 @@ if __name__ == '__main__':
             logs['test_mse'].append(mse_tot)
             logs['test_rec'].append(rec_tot)
             logs['test_div'].append(div_tot)
+            # Save dict
+                np.save(LOGS, logs)
             
             if (SAVE_MODEL): # Save model every epoch
                 torch.save( model.state_dict(), SAVE_FILENAME)
