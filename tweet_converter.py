@@ -24,8 +24,7 @@ def cleanTweets(rawTwitterData):
     for i,row in tqdm(rawTwitterData.iterrows()):
         cleanedTweet = []
         tweet,label = row['tweet'], row['label']
-        if(type(tweet)!=str):
-            print(tweet)
+        tweet=tweet.lower()
         for word in tweet.split():
             if (word != 'RT' and "http" not in word and bool(re.match(r'[\w.,?!\%/ \-()]+$', word))):
                 cleanedTweet.append(word)
