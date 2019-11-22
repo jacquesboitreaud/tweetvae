@@ -32,9 +32,10 @@ from utils import *
 
 # Loading the pretrained model and vocabulary
 print("loading vocabulary")
-vocab = pickle.load(open("./saved_model_w/vocabulary.pickle","wb"))
+words_to_ids = pickle.load(open("./saved_model_w/vocabulary.pickle","rb"))
+ids_to_words = {v: k for k, v in words_to_ids.items()}
 
-voc_size = len(vocab.keys())
+voc_size = len(words_to_ids.keys())
 max_words_in_tweet = 50
 
 print("loading trained model")
@@ -45,5 +46,20 @@ model_params={'MAX_LEN': 52, # + start-of-sentence token and end-of-sentence tok
               'N_topics':5} 
 model = tweetVAE(**model_params ).to(model_params['device']).float()
 load_my_state_dict(model, torch.load('./saved_model_w/first_try.pth' , map_location=map))
+
+# How to get decoded tweets by the model
+# Output of the model is a batch of one-hot sentences : shape is (batch_size * sentence_length * vocab_size)
+# Model takes and returns torch.tensor objects, located on the right device (cpu or cuda). 
+
+output_batch = output_batch.cpu().numpy() # convert to numpy array and bring back to cpu 
+N = output_batch.shape[0]
+for k in range(N):
+    prev_word, tweet=' ', ' '
+    timestep = 0
+    while(prev_word!='EOS'):
+        prev_word= ids_to_words(np.argmax(output_batch[k,timestep]))
+        tweet += prev_word
+        tweet+=' '
+    print(tweet)
 
 # Latent space structure : 

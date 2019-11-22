@@ -9,6 +9,7 @@ Trains sequence-to-sequence VAE to learn tweet embedding
 """
 import sys
 import pickle
+import numpy as np
 import torch
 import torch.utils.data
 from torch import nn, optim
@@ -144,50 +145,63 @@ if __name__ == '__main__':
         logs['train_mse'].append(mse_tot)
     
     
-    # Validation pass
-    model.eval()
-    l_tot, rec_tot, div_tot, mse_tot = 0,0,0,0
-    with torch.no_grad():
-        # test set pass
-    
-        for batch_idx, data in enumerate(test_loader):
+        # Validation pass
+        model.eval()
+        l_tot, rec_tot, div_tot, mse_tot = 0,0,0,0
+        with torch.no_grad():
+            # test set pass
         
-            true_idces = data[0].to(model_params['device'])
-            seq_lengths = data[1]
-            l_target= data[2].to(model_params['device']).view(-1,1)
+            for batch_idx, data in enumerate(test_loader):
             
-            # Sort 
-            seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
-            true_idces = true_idces[perm_idx]
-            
-            #=========== forward ==========================
-            recon_batch, mu, logvar, label= model(true_idces, seq_lengths)
-            
-            t_loss, rec, div, mse = Loss(recon_batch, true_idces.to(model_params['device']), mu, logvar,
-                                                         y=l_target, pred_label= label,
-                                                         kappa = 0)
+                true_idces = data[0].to(model_params['device'])
+                seq_lengths = data[1]
+                l_target= data[2].to(model_params['device']).view(-1,1)
                 
-           
+                # Sort 
+                seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
+                true_idces = true_idces[perm_idx]
                 
-            l_tot += t_loss.item()
-            rec_tot += rec.item()
-            div_tot += div.item()
-            mse_tot += mse.item()
+                #=========== forward ==========================
+                recon_batch, mu, logvar, label= model(true_idces, seq_lengths)
+                
+                t_loss, rec, div, mse = Loss(recon_batch, true_idces.to(model_params['device']), mu, logvar,
+                                                             y=l_target, pred_label= label,
+                                                             kappa = 0)
+                    
+               
+                    
+                l_tot += t_loss.item()
+                rec_tot += rec.item()
+                div_tot += div.item()
+                mse_tot += mse.item()
+                
+                # Print some monitoring stats for the first batch of test subset:
+                if(batch_idx==0):
+                    # Monitor loss at word level
+                    loss_per_timestep = rec.item()/(150*recon_batch.shape[0])
+                    print("Test cross-entropy loss per word : ", loss_per_timestep)
+                    
+                    # Print some decoded tweets: 
+                    recon_batch = recon_batch.cpu().numpy()
+                    N = recon_batch.shape[0]
+                    for k in range(N):
+                        prev_word, tweet=' ', ' '
+                        timestep = 0
+                        while(prev_word!='EOS'):
+                            prev_word=loaders.dataset.ids_to_words(np.argmax(recon_batch[k,timestep]))
+                            tweet += prev_word
+                            tweet+=' '
+                        print(tweet)
+                        
+                        
+            # At the end of the test set pass : 
+            logs['test_l'].append(l_tot)
+            logs['test_mse'].append(mse_tot)
+            logs['test_rec'].append(rec_tot)
+            logs['test_div'].append(div_tot)
             
-            # Print some monitoring stats for the first batch of test subset:
-            if(batch_idx==0):
-                # Monitor loss at a character level
-                loss_per_timestep = rec.item()/(150*recon_batch.shape[0])
-                print("Test cross-entropy loss per word : ", loss_per_timestep)
-        
-        # At the end of the test set pass : 
-        logs['test_l'].append(l_tot)
-        logs['test_mse'].append(mse_tot)
-        logs['test_rec'].append(rec_tot)
-        logs['test_div'].append(div_tot)
-        
-        if (SAVE_MODEL): # Save model every epoch
-            torch.save( model.state_dict(), SAVE_FILENAME)
-            print(f"model saved to {SAVE_FILENAME}")
-            best_loss=l_tot
+            if (SAVE_MODEL): # Save model every epoch
+                torch.save( model.state_dict(), SAVE_FILENAME)
+                print(f"model saved to {SAVE_FILENAME}")
+                best_loss=l_tot
         
