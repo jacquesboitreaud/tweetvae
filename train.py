@@ -34,7 +34,11 @@ if __name__ == '__main__':
     SAVE_MODEL=True
     
     #Load train set and test set
-    loaders = Loader(num_workers=4, batch_size=batch_size, clean= True, max_n=4000)
+    loaders = Loader(path = './data/finalData.csv',
+                     num_workers=4, 
+                     batch_size=batch_size, 
+                     clean= True, 
+                     max_n=100000)
     train_loader, _, test_loader = loaders.get_data()
     # Save vocabulary for later (evaluation):
     pickle.dump(loaders.dataset.words_to_ids,open("./saved_model_w/vocabulary.pickle","wb"))
@@ -178,7 +182,7 @@ if __name__ == '__main__':
                 # Print some monitoring stats for the first batch of test subset:
                 if(batch_idx==0):
                     # Monitor loss at word level
-                    loss_per_timestep = rec.item()/(150*recon_batch.shape[0])
+                    loss_per_timestep = rec.item()/(loaders.dataset.max_words*recon_batch.shape[0])
                     print("Test cross-entropy loss per word : ", loss_per_timestep)
                     
                     # Print some decoded tweets: 
