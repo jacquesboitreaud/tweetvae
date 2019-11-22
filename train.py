@@ -205,7 +205,7 @@ if __name__ == '__main__':
             logs['test_rec'].append(rec_tot)
             logs['test_div'].append(div_tot)
             # Save dict
-                np.save(LOGS, logs)
+            np.save(LOGS, logs)
             
             if (SAVE_MODEL): # Save model every epoch
                 torch.save( model.state_dict(), SAVE_FILENAME)
