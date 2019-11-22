@@ -188,7 +188,7 @@ if __name__ == '__main__':
                         prev_word, tweet=' ', ' '
                         timestep = 0
                         while(prev_word!='EOS'):
-                            prev_word=loaders.dataset.ids_to_words(np.argmax(recon_batch[k,timestep]))
+                            prev_word=loaders.dataset.ids_to_words[np.argmax(recon_batch[k,timestep])]
                             tweet += prev_word
                             tweet+=' '
                         print(tweet)
