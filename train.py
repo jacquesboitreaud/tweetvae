@@ -187,10 +187,11 @@ if __name__ == '__main__':
                     for k in range(N):
                         prev_word, tweet=' ', ' '
                         timestep = 0
-                        while(prev_word!='EOS'):
+                        while(prev_word!='EOS' and timestep<loaders.dataset.max_words):
                             prev_word=loaders.dataset.ids_to_words[np.argmax(recon_batch[k,timestep])]
                             tweet += prev_word
                             tweet+=' '
+                            timestep+=1
                         print(tweet)
                         
                         
