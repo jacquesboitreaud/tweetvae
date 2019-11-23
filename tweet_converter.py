@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+from nltk.stem import WordNetLemmatizer
 import re
 
 """ 
@@ -20,14 +21,18 @@ def clean_dataframe(df):
 """ Removes any words that are @ references to other twitter users, removes 'RT' used for retweets, and removes urls; keeps only words that contain alphanumerics characters and basic punctuation """
 def cleanTweets(rawTwitterData):
     """ Takes dataframe (tweet,label). Returns same with clean tweets """
+    #Create the lemmatizer and the regex pattern for keeping only alphanumeric characters and spaces
+    lemmatizer = WordNetLemmatizer()
+    regexPattern = re.compile('[^0-9a-zA-Z ]')
     cleanedTweets = {'tweet':[], 'label':[],'len':[]}
     for i,row in tqdm(rawTwitterData.iterrows()):
         cleanedTweet = []
         tweet,label = row['tweet'], row['label']
         tweet=tweet.lower()
         for word in tweet.split():
-            if (word != 'RT' and "http" not in word and bool(re.match(r'[\w.,?!\%/ \-()]+$', word))):
-                cleanedTweet.append(word)
+            if (word != 'RT' and word != 'rt' and "http" not in word and '@' not in word):
+            	#remove any non-alphanumeric characters from word and then lemmatize
+                cleanedTweet.append(lemmatizer.lemmatize(regexPattern.sub('',word)))
                 
         length=len(cleanedTweet)   
         cleanedTweets['tweet'].append(' '.join(cleanedTweet))
@@ -82,10 +87,10 @@ def vecToTweet(tweetVec, vocab):
 if __name__ == '__main__':
     #for testing purposes
     testSet = pd.read_csv("test.csv")
+    print(testSet['tweet'][4])
     cleaned = cleanTweets(testSet)
-    print(cleaned)
+    print(cleaned['tweet'][4])
     cleanedDF = clean_dataframe(cleaned)
-    print(cleanedDF)
 
     sample_vocab = []
     for tweet in cleanedDF['tweet']:
