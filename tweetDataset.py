@@ -81,7 +81,7 @@ class tweetDataset(Dataset):
         word_ids.append(self.EOS_token)
         length+=1 # account for EOS token
         
-        word_tensor = torch.zeros(self.max_words+2, dtype=torch.long) # words + EOS token, SOS token 
+        word_tensor = torch.zeros(self.max_words+1, dtype=torch.long) # words + EOS token, SOS token 
         word_tensor[:length]=torch.tensor(word_ids,dtype=torch.long)
         
         return word_tensor, torch.tensor(length, dtype=torch.long), torch.tensor(label, dtype=torch.long)
