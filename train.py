@@ -26,7 +26,7 @@ if __name__ == '__main__':
     nltk.download('wordnet')
 
     # config
-    n_epochs = 100 # epochs to train
+    n_epochs = 2 # epochs to train
     batch_size = 64
     # File to save the model's weights
     SAVE_FILENAME='./saved_model_w/first_try.pth'
@@ -41,7 +41,7 @@ if __name__ == '__main__':
                      num_workers=4, 
                      batch_size=batch_size, 
                      clean= True, 
-                     max_n=100000)
+                     max_n=1000)
     train_loader, _, test_loader = loaders.get_data()
     # Save vocabulary for later (evaluation):
     pickle.dump(loaders.dataset.words_to_ids,open("./saved_model_w/vocabulary.pickle","wb"))
