@@ -19,8 +19,11 @@ import torch.nn.functional as F
 from model_birnn import tweetVAE, Loss, set_kappa, load_my_state_dict, lr_decay
 from tweetDataset import tweetDataset, Loader
 from utils import *
+import nltk
 
 if __name__ == '__main__': 
+    
+    nltk.download('wordnet')
 
     # config
     n_epochs = 100 # epochs to train
