@@ -26,7 +26,7 @@ if __name__ == '__main__':
     nltk.download('wordnet')
 
     # config
-    n_epochs = 2 # epochs to train
+    n_epochs = 1 # epochs to train
     batch_size = 64
     # File to save the model's weights
     SAVE_FILENAME='./saved_model_w/first_try.pth'
@@ -98,26 +98,21 @@ if __name__ == '__main__':
             #kappa=0
             
             # Get data to GPU
-            true_idces = data[0]
+            true_idces = data[0].to(model_params['device'])
             seq_lengths = data[1] #1D int CPU tensor
-            #print(len(seq_lengths), true_idces.shape)
+            
             
             l_target= data[2].to(model_params['device']).view(-1,1)
-            
-            seq_tensor = torch.zeros((batch_size,model.max_len)).long().cuda()
-            for idx, seq in enumerate(true_idces):
-                seq_tensor[idx] = torch.LongTensor(seq)
             
             # Sort 
             seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
             true_idces,l_target = true_idces[perm_idx], l_target[perm_idx]
             
-            #print(seq_tensor.shape)
-            #print(seq_lengths.shape)
+            #print(len(seq_lengths), true_idces.shape)
             
             #=========== forward ==========================
-            recon_batch, mu, logvar, label = model(seq_tensor, seq_lengths)
-            tr_loss, rec, div, mse = Loss(recon_batch,true_idces.to(model_params['device']), mu, logvar,
+            recon_batch, mu, logvar, label = model(true_idces, seq_lengths)
+            tr_loss, rec, div, mse = Loss(recon_batch,true_idces, mu, logvar,
                                                          y=l_target, pred_label= label,
                                                          kappa = kappa)
                 
