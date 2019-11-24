@@ -3,3 +3,5 @@ __pycache__
 test.zip
 test.csv
 .DS_Store
+saved_model_w
+
