@@ -20,7 +20,7 @@ import torch.utils.data
 from torch import nn
 from torch.nn import functional as F
 from torch.nn import Parameter
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 
 from utils import Variable, BeamSearchNode
 
@@ -33,10 +33,10 @@ class tweetVAE(nn.Module):
         super(tweetVAE, self).__init__()
         
         self.kappa=1
-        self.voc_size=kwargs['vocab_size']+2 # EOS token , SOS token
-        self.max_len=kwargs['MAX_LEN']+2 # EOS token , SOS token
+        self.max_len=kwargs['MAX_LEN']
+        self.glove_embeddings = kwargs['weights_matrix']
         
-        self.latent_size= 50
+        self.latent_size= 100
         self.h_size=400
         self.device=kwargs['device']
         
@@ -45,10 +45,17 @@ class tweetVAE(nn.Module):
         self.N_properties=kwargs['N_properties']
         self.N_topics = kwargs['N_topics']
         
+        # Embedding  (GloVe, frozen)
+        self.voc_size, self.embedding_dim = self.glove_embeddings.shape
+        
+        self.emb_layer = nn.Embedding(self.voc_size , self.embedding_dim)
+        self.emb_layer.load_state_dict({'weight': self.glove_embeddings})
+        self.emb_layer.weight.requires_grad = False
+        
+        
         
         # ENCODER
-        self.embedding = nn.Embedding(self.voc_size, self.h_size) # num embeddings * size of emb vector
-        self.birnn = torch.nn.GRU(input_size=self.h_size, hidden_size=self.h_size, num_layers=1,
+        self.birnn = torch.nn.GRU(input_size=self.embedding_dim, hidden_size=self.h_size, num_layers=1,
                                   batch_first=True, bidirectional=True)
         
         # Latent mean and variance
@@ -58,11 +65,11 @@ class tweetVAE(nn.Module):
         
         # DECODER: Multilayer GRU, trained with teacher forcing
         # We reuse the embedding layer before passing input to rnn_decoder, hence input_size = h_size
-        self.rnn_decoder = nn.GRU(input_size=self.h_size, hidden_size=self.h_size, num_layers=3,
+        self.rnn_decoder = nn.GRU(input_size=self.embedding_dim, hidden_size=self.embedding_dim, num_layers=3,
                                   batch_first=True, bidirectional=False)
         
-        self.dense_init=nn.Linear(self.latent_size,3*self.h_size) # to initialise hidden state
-        self.dense_out=nn.Linear(self.h_size,self.voc_size)
+        self.dense_init=nn.Linear(self.latent_size,3*self.embedding_dim) # to initialise hidden state
+        self.dense_out=nn.Linear(self.embedding_dim,self.voc_size)
         
         # PROPERTY REGRESSOR (may change to classifier with sigmoid and bce loss)
         self.MLP=nn.Sequential(
@@ -81,8 +88,8 @@ class tweetVAE(nn.Module):
         Out: mean and logv, (batch_size * latent_size ) 
         
         """
+        x = self.emb_layer(x)
         
-        x = self.embedding(x)
         packed = pack_padded_sequence(x, x_true_len.cpu().numpy(), batch_first=True)
         # Pass to 2directional rnn
         bi_output, bi_hidden = self.birnn(packed)
@@ -116,13 +123,13 @@ class tweetVAE(nn.Module):
         batch_size, seq_len =x_true.shape
         
         # Init hidden with z sampled in latent space
-        h0=self.dense_init(z).view(3,batch_size, self.h_size)
+        h0=self.dense_init(z).view(3,batch_size, self.embedding_dim)
         
-        SOS_token = self.voc_size-1 # index of SOS token in embeddings table
-        start=np.ones((batch_size,1))*SOS_token
+        start_token = 2 # index of SOS token in embeddings table
+        start=np.ones((batch_size,1))*start_token
         
         x_offset = torch.cat((torch.tensor(start,dtype=torch.long).to(self.device), x_true[:,:-1]),dim=1 )
-        x_offset = self.embedding(x_offset)
+        x_offset = self.emb_layer(x_offset)
         # pass to GRU with teacher forcing
         out, h = self.rnn_decoder(x_offset, h0)
         out=self.dense_out(out) # Go from hidden size to voc size 

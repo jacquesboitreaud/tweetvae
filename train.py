@@ -23,10 +23,10 @@ import nltk
 
 if __name__ == '__main__': 
     
-    nltk.download('wordnet')
+    #nltk.download('wordnet')
 
     # config
-    n_epochs = 100 # epochs to train
+    n_epochs = 10 # epochs to train
     batch_size = 64
     # File to save the model's weights
     SAVE_FILENAME='./saved_model_w/first_try.pth'
@@ -41,19 +41,21 @@ if __name__ == '__main__':
                      num_workers=4, 
                      batch_size=batch_size, 
                      clean= True, 
-                     max_n=100000)
+                     max_n=10000)
     train_loader, _, test_loader = loaders.get_data()
     # Save vocabulary for later (evaluation):
     pickle.dump(loaders.dataset.words_to_ids,open("./saved_model_w/vocabulary.pickle","wb"))
     
     #Model & hparams
     
-    
+    glove_matrix = loaders.get_glove_matrix('data/glove')
     model_params={'MAX_LEN': loaders.dataset.max_words,
                   'vocab_size': loaders.dataset.voc_len,
                   'device': 'cuda' if torch.cuda.is_available() else 'cpu',
                   'N_properties':1,
-                  'N_topics':5} 
+                  'N_topics':5,
+                  'weights_matrix': glove_matrix} 
+    
     model = tweetVAE(**model_params ).to(model_params['device']).float()
     
     if(LOAD_MODEL):
