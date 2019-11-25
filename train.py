@@ -19,18 +19,21 @@ import torch.nn.functional as F
 from model_birnn import tweetVAE, Loss, set_kappa, load_my_state_dict, lr_decay
 from tweetDataset import tweetDataset, Loader
 from utils import *
+import nltk
 
 if __name__ == '__main__': 
+    
+    #nltk.download('wordnet')
 
     # config
-    n_epochs = 100 # epochs to train
+    n_epochs = 1 # epochs to train
     batch_size = 64
     # File to save the model's weights
     SAVE_FILENAME='./saved_model_w/first_try.pth'
     LOGS='../data/logs_first_try.npy'
     # To load model 
     SAVED_MODEL_PATH ='./saved_model_w/first_try.pth'
-    LOAD_MODEL=False # set to true to load pretrained model
+    LOAD_MODEL=True # set to true to load pretrained model
     SAVE_MODEL=True
     
     #Load train set and test set
@@ -38,24 +41,26 @@ if __name__ == '__main__':
                      num_workers=4, 
                      batch_size=batch_size, 
                      clean= True, 
-                     max_n=100000)
+                     max_n=10000)
     train_loader, _, test_loader = loaders.get_data()
     # Save vocabulary for later (evaluation):
     pickle.dump(loaders.dataset.words_to_ids,open("./saved_model_w/vocabulary.pickle","wb"))
+    glove_matrix = loaders.get_glove_matrix('data/glove')
+    pickle.dump(glove_matrix,open("./saved_model_w/glove_matrix.pickle","wb"))
     
     #Model & hparams
-    
-    
     model_params={'MAX_LEN': loaders.dataset.max_words,
                   'vocab_size': loaders.dataset.voc_len,
                   'device': 'cuda' if torch.cuda.is_available() else 'cpu',
                   'N_properties':1,
-                  'N_topics':5} 
+                  'N_topics':5,
+                  'weights_matrix': glove_matrix} 
+    
     model = tweetVAE(**model_params ).to(model_params['device']).float()
     
     if(LOAD_MODEL):
         print("loading network coeffs")
-        load_my_state_dict(model, torch.load(SAVED_MODEL_PATH, map_location=map))
+        model.load_state_dict(torch.load(SAVED_MODEL_PATH))
     
     parallel=False
     if (parallel): #torch.cuda.device_count() > 1 and
@@ -95,26 +100,21 @@ if __name__ == '__main__':
             #kappa=0
             
             # Get data to GPU
-            true_idces = data[0]
+            true_idces = data[0].to(model_params['device'])
             seq_lengths = data[1] #1D int CPU tensor
-            #print(len(seq_lengths), true_idces.shape)
+            
             
             l_target= data[2].to(model_params['device']).view(-1,1)
-            
-            seq_tensor = torch.zeros((batch_size,model.max_len)).long().cuda()
-            for idx, seq in enumerate(true_idces):
-                seq_tensor[idx] = torch.LongTensor(seq)
             
             # Sort 
             seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
             true_idces,l_target = true_idces[perm_idx], l_target[perm_idx]
             
-            #print(seq_tensor.shape)
-            #print(seq_lengths.shape)
+            #print(len(seq_lengths), true_idces.shape)
             
             #=========== forward ==========================
-            recon_batch, mu, logvar, label = model(seq_tensor, seq_lengths)
-            tr_loss, rec, div, mse = Loss(recon_batch,true_idces.to(model_params['device']), mu, logvar,
+            recon_batch, mu, logvar, label = model(true_idces, seq_lengths)
+            tr_loss, rec, div, mse = Loss(recon_batch,true_idces, mu, logvar,
                                                          y=l_target, pred_label= label,
                                                          kappa = kappa)
                 
@@ -191,7 +191,7 @@ if __name__ == '__main__':
                     for k in range(N):
                         prev_word, tweet=' ', ' '
                         timestep = 0
-                        while(prev_word!='EOS' and timestep<loaders.dataset.max_words):
+                        while(prev_word!='<eos>' and timestep<loaders.dataset.max_words):
                             prev_word=loaders.dataset.ids_to_words[np.argmax(recon_batch[k,timestep])]
                             tweet += prev_word
                             tweet+=' '

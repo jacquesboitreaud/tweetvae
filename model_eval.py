@@ -31,19 +31,23 @@ from utils import *
 
 
 # Loading the pretrained model and vocabulary
-print("loading vocabulary")
+print("loading vocabulary and word embeddings matrix")
 words_to_ids = pickle.load(open("./saved_model_w/vocabulary.pickle","rb"))
-ids_to_words = {v: k for k, v in words_to_ids.items()}
+glove_matrix = pickle.load(open("./saved_model_w/glove_matrix.pickle","rb"))
 
+ids_to_words = {v: k for k, v in words_to_ids.items()}
 voc_size = len(words_to_ids.keys())
 max_words_in_tweet = 50
 
+# Loading model
 print("loading trained model")
+
 model_params={'MAX_LEN': 52, # + start-of-sentence token and end-of-sentence token
               'vocab_size': voc_size,
               'device': 'cuda' if torch.cuda.is_available() else 'cpu',
               'N_properties':1,
-              'N_topics':5} 
+              'N_topics':5,
+              'weights_matrix': glove_matrix} 
 model = tweetVAE(**model_params ).to(model_params['device']).float()
 load_my_state_dict(model, torch.load('./saved_model_w/first_try.pth' , map_location=map))
 
@@ -56,7 +60,7 @@ N = output_batch.shape[0]
 for k in range(N):
     prev_word, tweet=' ', ' '
     timestep = 0
-    while(prev_word!='EOS'and timestep<model_params['MAX_LEN']):
+    while(prev_word!='<eos>'and timestep<model_params['MAX_LEN']):
         prev_word= ids_to_words(np.argmax(output_batch[k,timestep]))
         tweet += prev_word
         tweet+=' '
