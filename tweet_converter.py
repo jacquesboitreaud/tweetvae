@@ -44,10 +44,12 @@ def cleanTweets(rawTwitterData):
            	#if (currWord != 'RT' and currWord != 'rt' and "http" not in currWord and '@' not in currWord):
             	#remove any non-alphanumeric characters from word and then lemmatize
                 
-        length=len(cleanedTweet)   
-        cleanedTweets['tweet'].append(' '.join(cleanedTweet))
-        cleanedTweets['label'].append(label)
-        cleanedTweets['len'].append(length)
+        length=len(cleanedTweet)
+        # Filter tweets with less than 7 words remaining
+        if(length>6):
+            cleanedTweets['tweet'].append(' '.join(cleanedTweet))
+            cleanedTweets['label'].append(label)
+            cleanedTweets['len'].append(length)
 
     return pd.DataFrame(cleanedTweets)
 
@@ -95,6 +97,7 @@ def vecToTweet(tweetVec, vocab):
 
 
 if __name__ == '__main__':
+    """
     #for testing purposes
     testSet = pd.read_csv("test.csv")
     print(testSet['tweet'][9])
@@ -111,3 +114,9 @@ if __name__ == '__main__':
                 sample_vocab.append(word)
     #print(sample_vocab)
     print(max(cleanedDF['len']))
+    """
+    
+    # To clean the sentiments data 
+    df=pd.read_csv('data/sentiments_train.csv')
+    df=cleanTweets(df)
+    df.to_csv('data/sentiments_train.csv')
