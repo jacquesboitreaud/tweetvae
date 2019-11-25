@@ -3,6 +3,8 @@ import numpy as np
 from tqdm import tqdm
 from nltk.stem import WordNetLemmatizer
 import re
+from nltk.corpus import words
+import nltk
 
 """ 
 I modified some functions to handle the tweet dataframe with columns (tweet, label)
@@ -25,14 +27,22 @@ def cleanTweets(rawTwitterData):
     lemmatizer = WordNetLemmatizer()
     regexPattern = re.compile('[^0-9a-zA-Z ]')
     cleanedTweets = {'tweet':[], 'label':[],'len':[]}
+    wordSet = set(words.words())
     for i,row in tqdm(rawTwitterData.iterrows()):
         cleanedTweet = []
         tweet,label = row['tweet'], row['label']
-        tweet=tweet.lower()
-        for word in tweet.split():
-            if (word != 'RT' and word != 'rt' and "http" not in word and '@' not in word):
+        tweet = nltk.pos_tag(tweet.split())
+        for word in tweet:
+        	currWord = word[0]
+        	if (currWord != 'RT' and currWord != 'rt' and "http" not in currWord and '@' not in currWord):
+        		cleanedWord = lemmatizer.lemmatize(regexPattern.sub('',currWord))
+        		if (cleanedWord in wordSet or word[1] == 'NNP'):
+        			if (word[1] == 'NNP'):
+        				cleanedTweet.append('NNP')
+        			else:
+        				cleanedTweet.append(currWord)
+           	#if (currWord != 'RT' and currWord != 'rt' and "http" not in currWord and '@' not in currWord):
             	#remove any non-alphanumeric characters from word and then lemmatize
-                cleanedTweet.append(lemmatizer.lemmatize(regexPattern.sub('',word)))
                 
         length=len(cleanedTweet)   
         cleanedTweets['tweet'].append(' '.join(cleanedTweet))
@@ -87,9 +97,9 @@ def vecToTweet(tweetVec, vocab):
 if __name__ == '__main__':
     #for testing purposes
     testSet = pd.read_csv("test.csv")
-    print(testSet['tweet'][4])
+    print(testSet['tweet'][9])
     cleaned = cleanTweets(testSet)
-    print(cleaned['tweet'][4])
+    print(cleaned['tweet'][9])
     cleanedDF = clean_dataframe(cleaned)
 
     sample_vocab = []
