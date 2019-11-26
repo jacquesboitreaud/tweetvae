@@ -24,11 +24,11 @@ import nltk
 if __name__ == '__main__': 
     
     #nltk.download('wordnet')
-    nltk.download('words')
-    nltk.download('averaged_perceptron_tagger')
+    #nltk.download('words')
+    #nltk.download('averaged_perceptron_tagger')
     
     # config
-    n_epochs = 1 # epochs to train
+    n_epochs = 60 # epochs to train
     batch_size = 64
     # File to save the model's weights
     SAVE_FILENAME='./saved_model_w/first_try.pth'
@@ -37,14 +37,14 @@ if __name__ == '__main__':
     SAVED_MODEL_PATH ='./saved_model_w/first_try.pth'
     LOAD_MODEL=False # set to true to load pretrained model
     SAVE_MODEL=True
-    clean_data=True
+    clean_data=False # Set to true if first time the dataset is processed
     
     #Load train set and test set
-    loaders = Loader(path = './data/finalData.csv',
+    loaders = Loader(path = './data/sentiments_train.csv',
                      num_workers=4, 
                      batch_size=batch_size, 
                      clean= clean_data, 
-                     max_n=100000)
+                     max_n=160000000) # max nbr of datapoints
     train_loader, _, test_loader = loaders.get_data()
     # Save vocabulary for later (evaluation):
     pickle.dump(loaders.dataset.words_to_ids,open("./saved_model_w/vocabulary.pickle","wb"))
