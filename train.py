@@ -28,7 +28,7 @@ if __name__ == '__main__':
     #nltk.download('averaged_perceptron_tagger')
     
     # config
-    n_epochs = 60 # epochs to train
+    n_epochs = 200 # epochs to train
     batch_size = 64
     # File to save the model's weights
     SAVE_FILENAME='./saved_model_w/first_try.pth'
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     SAVED_MODEL_PATH ='./saved_model_w/first_try.pth'
     LOAD_MODEL=False # set to true to load pretrained model
     SAVE_MODEL=True
-    clean_data=True # Set to true if first time the dataset is processed
+    clean_data=False # Set to true if first time the dataset is processed
     
     #Load train set and test set
     loaders = Loader(path = './data/full_train_set.csv',

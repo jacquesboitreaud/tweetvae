@@ -14,7 +14,7 @@ import numpy as np
 import pickle
 
 if(__name__=='__main__'):
-    glove_path = '../data/glove'
+    glove_path = 'data/glove'
     
     words = []
     idx = 0
