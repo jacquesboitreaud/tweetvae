@@ -53,6 +53,39 @@ def cleanTweets(rawTwitterData):
 
     return pd.DataFrame(cleanedTweets)
 
+""" Takes the cleaned twitter data and replaces any words that occur less than minCount times with 'UNK' """
+def removeLowFreqWords(cleanedTwitterData, minCount):
+    wordCounts = {}
+    for atweet in cleanedTwitterData['tweet']:
+        for aword in atweet.split():
+            if aword in wordCounts:
+                wordCounts[aword] += 1
+            else:
+                wordCounts[aword] = 1
+
+    wordsToKeep = []
+    for aword in wordCounts.keys():
+        if wordCounts[aword] >= minCount:
+            wordsToKeep.append(aword)
+
+    wordSet = set(wordsToKeep)
+    filteredTweets = {'tweet':[], 'label':[],'len':[]}
+
+    for atweet in cleanedTwitterData['tweet']:
+        sentence = []
+        for aword in atweet.split():
+            if aword in wordSet:
+                sentence.append(aword)
+            else:
+                sentence.append('UNK')
+        filteredTweets['tweet'].append(' '.join(sentence))
+
+    filteredTweets['label'] = cleanedTwitterData['label']
+    filteredTweets['len'] = cleanedTwitterData['len']
+
+    return pd.DataFrame(filteredTweets)
+
+
 """ Generates the vector of possible vocabulary words based on the sampled tweets, returned as a list of words """
 def generateDictionaryList(cleanedTwitterData):
 	sample_vocab = []
@@ -100,9 +133,10 @@ if __name__ == '__main__':
     """
     #for testing purposes
     testSet = pd.read_csv("test.csv")
-    print(testSet['tweet'][9])
-    cleaned = cleanTweets(testSet)
-    print(cleaned['tweet'][9])
+    print(testSet['tweet'][1])
+    cleaned = removeLowFreqWords(cleanTweets(testSet), 2)
+
+    print(cleaned['tweet'][1])
     cleanedDF = clean_dataframe(cleaned)
 
     sample_vocab = []
