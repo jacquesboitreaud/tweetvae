@@ -37,14 +37,18 @@ if __name__ == '__main__':
     SAVED_MODEL_PATH ='./saved_model_w/first_try.pth'
     LOAD_MODEL=False # set to true to load pretrained model
     SAVE_MODEL=True
-    clean_data=False # Set to true if first time the dataset is processed
+    clean_data=True # Set to true if first time the dataset is processed
+    remove_unfrequent=False
     
     #Load train set and test set
-    loaders = Loader(path = './data/full_train_set.csv',
+    loaders = Loader(path = './data/sentiments_train.csv',
                      num_workers=4, 
                      batch_size=batch_size, 
-                     clean= clean_data, 
-                     max_n=100000) # max nbr of datapoints
+                     clean= clean_data,
+                     remove=remove_unfrequent,
+                     max_n=1000000, # max nbr of datapoints
+                     debug=False) # test set = train set (overfitting on purpous)
+    
     train_loader, _, test_loader = loaders.get_data()
     # Save vocabulary for later (evaluation):
     pickle.dump(loaders.dataset.words_to_ids,open("./saved_model_w/vocabulary.pickle","wb"))
@@ -73,7 +77,7 @@ if __name__ == '__main__':
     #Print model summary
     print(model)
     map = ('cpu' if model_params['device'] == 'cpu' else None)
-    lr_schedule={'initial_lr':1e-4,
+    lr_schedule={'initial_lr':4e-4,
              'decay_freq':10,
              'decay_factor':0.8}
     optimizer = optim.SGD(model.parameters(), lr= lr_schedule['initial_lr'])
@@ -119,7 +123,7 @@ if __name__ == '__main__':
             recon_batch, mu, logvar, label = model(true_idces, seq_lengths)
             tr_loss, rec, div, mse = Loss(recon_batch,true_idces, mu, logvar,
                                                          y=l_target, pred_label= label,
-                                                         kappa = kappa)
+                                                         kappa = 0)
                 
             # =========== backward =========================
             optimizer.zero_grad()
@@ -170,7 +174,6 @@ if __name__ == '__main__':
                 
                 #=========== forward ==========================
                 recon_batch, mu, logvar, label= model(true_idces, seq_lengths)
-                
                 t_loss, rec, div, mse = Loss(recon_batch, true_idces.to(model_params['device']), mu, logvar,
                                                              y=l_target, pred_label= label,
                                                              kappa = 0)
@@ -189,13 +192,15 @@ if __name__ == '__main__':
                     print("Test cross-entropy loss per word : ", loss_per_timestep)
                     
                     # Print some decoded tweets: 
+                    recon_batch=F.log_softmax(recon_batch,dim=2) # over possible words
                     recon_batch = recon_batch.cpu().numpy()
+                    print(recon_batch.shape)
                     N = recon_batch.shape[0]
                     for k in range(N):
                         prev_word, tweet=' ', ' '
                         timestep = 0
                         while(prev_word!='<eos>' and timestep<loaders.dataset.max_words):
-                            prev_word=loaders.dataset.ids_to_words[np.argmax(recon_batch[k,timestep])]
+                            prev_word=loaders.dataset.ids_to_words[np.argmax(recon_batch[k,:,timestep])]
                             tweet += prev_word
                             tweet+=' '
                             timestep+=1

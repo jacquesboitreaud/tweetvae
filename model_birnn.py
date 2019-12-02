@@ -27,6 +27,39 @@ from utils import Variable, BeamSearchNode
 
 from queue import PriorityQueue
 
+class MultiGRU(nn.Module):
+    """ 
+    three layer GRU cell including an embedding layer
+    and an output linear layer back to the size of the vocabulary
+    """
+    def __init__(self, embedding_size, voc_size, latent_size, h_size=400):
+        super(MultiGRU, self).__init__()
+        
+        self.h_size=h_size
+        
+        self.dense_init=nn.Linear(latent_size,3*self.h_size) # to initialise hidden state
+        
+        self.gru_1 = nn.GRUCell(embedding_size, self.h_size)
+        self.gru_2 = nn.GRUCell(self.h_size, self.h_size)
+        self.gru_3 = nn.GRUCell(self.h_size, self.h_size)
+        self.linear = nn.Linear(self.h_size, voc_size) #dense out 
+
+    def forward(self, x, h):
+        """ Forward pass to 3-layer GRU. Output =  output, hidden state of layer 3 """
+        x = x.view(x.shape[0],-1) # batch_size * 128
+        h_out = Variable(torch.zeros(h.size()))
+        x= h_out[0] = self.gru_1(x, h[0])
+        x= h_out[1] = self.gru_2(x, h[1])
+        x= h_out[2] = self.gru_3(x, h[2])
+        x = self.linear(x)
+        return x, h_out
+
+    def init_h(self, z):
+        """ Initializes hidden state for 3 layers GRU with latent vector z """
+        batch_size, latent_shape = z.size()
+        hidden=self.dense_init(z).view(3,batch_size, self.h_size)
+        return hidden
+
 
 class tweetVAE(nn.Module):
     def __init__(self, **kwargs ):
@@ -36,7 +69,7 @@ class tweetVAE(nn.Module):
         self.max_len=kwargs['MAX_LEN']
         self.glove_embeddings = kwargs['weights_matrix']
         
-        self.latent_size= 100
+        self.latent_size= 50
         self.h_size=400
         self.device=kwargs['device']
         
@@ -52,8 +85,7 @@ class tweetVAE(nn.Module):
         self.emb_layer.load_state_dict({'weight': self.glove_embeddings})
         self.emb_layer.weight.requires_grad = False
         
-        
-        
+        # =================================================================
         # ENCODER
         self.birnn = torch.nn.GRU(input_size=self.embedding_dim, hidden_size=self.h_size, num_layers=1,
                                   batch_first=True, bidirectional=True)
@@ -64,12 +96,7 @@ class tweetVAE(nn.Module):
         self.encoder_logv = nn.Linear(self.latent_size , self.latent_size)
         
         # DECODER: Multilayer GRU, trained with teacher forcing
-        # We reuse the embedding layer before passing input to rnn_decoder, hence input_size = h_size
-        self.rnn_decoder = nn.GRU(input_size=self.embedding_dim, hidden_size=self.embedding_dim, num_layers=3,
-                                  batch_first=True, bidirectional=False)
-        
-        self.dense_init=nn.Linear(self.latent_size,3*self.embedding_dim) # to initialise hidden state
-        self.dense_out=nn.Linear(self.embedding_dim,self.voc_size)
+        self.rnn_decoder = MultiGRU(self.embedding_dim, self.voc_size, self.latent_size, self.h_size)
         
         # PROPERTY REGRESSOR (may change to classifier with sigmoid and bce loss)
         self.MLP=nn.Sequential(
@@ -123,18 +150,22 @@ class tweetVAE(nn.Module):
         batch_size, seq_len =x_true.shape
         
         # Init hidden with z sampled in latent space
-        h0=self.dense_init(z).view(3,batch_size, self.embedding_dim)
+        h = self.rnn_decoder.init_h(z)
         
-        start_token = 2 # index of SOS token in embeddings table
-        start=np.ones((batch_size,1))*start_token
+        start_token=torch.ones((batch_size,1), dtype=torch.long)*2 # <start> token
+        start_token = self.emb_layer(start_token.to(self.device))
+        rnn_in = start_token
         
-        x_offset = torch.cat((torch.tensor(start,dtype=torch.long).to(self.device), x_true[:,:-1]),dim=1 )
-        x_offset = self.emb_layer(x_offset)
-        # pass to GRU with teacher forcing
-        out, h = self.rnn_decoder(x_offset, h0)
-        out=self.dense_out(out) # Go from hidden size to voc size 
-        #gen_seq = F.softmax(out, dim=1) # Shape N, voc_size
-        return out
+        gen_seq = Variable(torch.zeros(batch_size, self.voc_size,seq_len))
+        
+        for step in range(seq_len):
+            out, h = self.rnn_decoder(rnn_in, h) 
+            gen_seq[:,:,step]=out # For cross entropy version, transpose dim1 and dim2
+            
+            # Update prev_out to be fed to GRU at next step
+            rnn_in=self.emb_layer(x_true[:,step]) # for timestep t+1, ground truth at t will be fed
+                
+        return gen_seq
     
     def get_properties(self,z):
         """ Forward pass of the latent vector to generate molecular properties"""
@@ -160,7 +191,7 @@ def Loss(out, x_indices, mu, logvar, y=None, pred_label=None, kappa=1.0):
         - mean squared error for properties prediction
     
     """
-    rec = F.cross_entropy(out.transpose(2,1), x_indices, reduction="sum")
+    rec = F.cross_entropy(out, x_indices, reduction="sum")
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     
     error= F.cross_entropy(pred_label, y.view(-1), reduction="sum")

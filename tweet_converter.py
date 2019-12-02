@@ -54,7 +54,7 @@ def cleanTweets(rawTwitterData):
     return pd.DataFrame(cleanedTweets)
 
 """ Takes the cleaned twitter data and replaces any words that occur less than minCount times with 'UNK' """
-def removeLowFreqWords(cleanedTwitterData, minCount):
+def removeLowFreqWords(cleanedTwitterData, minCount=10):
     wordCounts = {}
     for atweet in cleanedTwitterData['tweet']:
         for aword in atweet.split():

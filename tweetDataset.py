@@ -37,6 +37,7 @@ class tweetDataset(Dataset):
     def __init__(self, 
                 data_file,
                 clean=True,
+                remove=True,
                 debug=False, 
                 shuffled=False, 
                 n_tweets=200000):
@@ -49,6 +50,8 @@ class tweetDataset(Dataset):
             print('Cleaning data. Will be saved in ./data directory for next time')
             self.df = clean_dataframe(self.df) # remove nan values 
             self.df = cleanTweets(self.df) # filter out weird symbols 
+            if(remove):
+                self.df = removeLowFreqWords(self.df,10) # Minimum count = 10 
             # Save for next time
             self.df.to_csv(data_file)
         
@@ -109,6 +112,7 @@ class Loader():
                  batch_size=128,
                  num_workers=1,
                  clean=True,
+                 remove=True,
                  debug=False,
                  shuffled=True,
                  max_n = 200000):
@@ -121,10 +125,12 @@ class Loader():
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.dataset = tweetDataset(path, clean=clean,
+                                    remove=remove,
                           debug=debug,
                           shuffled=shuffled,
                           n_tweets=max_n)
         self.embedding_dim = 50
+        self.debug=debug
 
     def get_data(self):
         n = len(self.dataset)
@@ -141,7 +147,10 @@ class Loader():
         
         train_set = Subset(self.dataset, train_indices)
         #valid_set = Subset(self.dataset, valid_indices)
-        test_set = Subset(self.dataset, test_indices)
+        if(not self.debug):
+            test_set = Subset(self.dataset, test_indices)
+        else:
+            test_set = Subset(self.dataset,train_indices)
         print(f"Train set contains {len(train_set)} samples")
 
 
@@ -150,7 +159,6 @@ class Loader():
 
         # valid_loader = DataLoader(dataset=valid_set, shuffle=True, batch_size=self.batch_size,
         #                           num_workers=self.num_workers, collate_fn=collate_block)
-        
         test_loader = DataLoader(dataset=test_set, shuffle=False, batch_size=self.batch_size,
                                  num_workers=self.num_workers,drop_last=True)
 
