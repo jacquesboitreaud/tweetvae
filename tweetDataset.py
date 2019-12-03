@@ -110,7 +110,7 @@ class Loader():
                  path,
                  #path="test.csv",
                  batch_size=128,
-                 num_workers=1,
+                 num_workers=0,
                  clean=True,
                  remove=True,
                  debug=False,
@@ -138,7 +138,7 @@ class Loader():
         indices = list(range(n))
         # np.random.shuffle(indices)
         np.random.seed(0)
-        split_train, split_valid = 0.9, 0.9
+        split_train, split_valid = 0.95, 0.95
         train_index, valid_index = int(split_train * n), int(split_valid * n)
         
         train_indices = indices[:train_index]
