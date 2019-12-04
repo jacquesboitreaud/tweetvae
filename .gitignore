@@ -4,6 +4,4 @@ test.zip
 test.csv
 .DS_Store
 saved_model_w
-
-saved_model_w/vocabulary.pickle
-saved_model_w/first_try.pth
+*.pth

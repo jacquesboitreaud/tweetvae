@@ -32,8 +32,8 @@ from utils import *
 
 # Loading the pretrained model and vocabulary
 print("loading vocabulary and word embeddings matrix")
-words_to_ids = pickle.load(open("./saved_model_w/vocabulary.pickle","rb"))
-glove_matrix = pickle.load(open("./saved_model_w/glove_matrix.pickle","rb"))
+words_to_ids = pickle.load(open("./saved_model_w/vocabulary_our_d.pickle","rb"))
+glove_matrix = pickle.load(open("./saved_model_w/glove_matrix_our_d.pickle","rb"))
 
 ids_to_words = {v: k for k, v in words_to_ids.items()}
 voc_size = len(words_to_ids.keys())
@@ -49,7 +49,15 @@ model_params={'MAX_LEN': 52, # + start-of-sentence token and end-of-sentence tok
               'N_topics':5,
               'weights_matrix': glove_matrix} 
 model = tweetVAE(**model_params ).to(model_params['device']).float()
-load_my_state_dict(model, torch.load('./saved_model_w/first_try.pth' , map_location=map))
+load_my_state_dict(model, torch.load('./saved_model_w/our_dataset.pth'))
+
+
+# Passing tweets to the model 
+#TODO 
+
+
+
+
 
 # How to get decoded tweets by the model
 # Output of the model is a batch of one-hot sentences : shape is (batch_size * sentence_length * vocab_size)
