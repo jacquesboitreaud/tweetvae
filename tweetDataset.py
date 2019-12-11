@@ -40,13 +40,14 @@ class tweetDataset(Dataset):
                 remove=True,
                 debug=False, 
                 shuffled=False, 
-                n_tweets=200000):
+                n_tweets=200000,
+                EVAL=True):
         
         self.path = data_file
         
         # Load and clean tweets
         self.df = pd.read_csv(data_file, nrows=n_tweets)
-        if(clean):
+        if(clean and not EVAL):
             print('Cleaning data. Will be saved in ./data directory for next time')
             self.df = clean_dataframe(self.df) # remove nan values 
             self.df = cleanTweets(self.df) # filter out weird symbols 
@@ -115,7 +116,8 @@ class Loader():
                  remove=True,
                  debug=False,
                  shuffled=True,
-                 max_n = 200000):
+                 max_n = 200000,
+                 EVAL = True):
         """
         Wrapper for test loader, train loader 
         Uncomment to add validation loader 
@@ -128,7 +130,8 @@ class Loader():
                                     remove=remove,
                           debug=debug,
                           shuffled=shuffled,
-                          n_tweets=max_n)
+                          n_tweets=max_n, 
+                          EVAL=EVAL)
         self.embedding_dim = 50
         self.debug=debug
 
